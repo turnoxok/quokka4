@@ -1,3 +1,4 @@
+window.TUWEEB_CLIENTE=true;
 /* tema.js — logo, nombre y colores de la marca para TODAS las páginas (sitio 3D, planes, galería, invitaciones, reservar, panel).
    Los colores originales (verde Planeta Niños) están escritos en cada página como var(--t-xxxxxx, respaldo). Acá se recalculan a partir del color de la marca
    girando el tono y conservando luminosidad: el contraste y la legibilidad no se pierden con ninguna marca.
@@ -21,7 +22,7 @@ var mapa=null,T=window.TEMA={fabrica:FABRICA,color:'',color2:'',logo:'',nombre:'
 
 /* ── DEMOS ── */
 var enRaiz=location.pathname.replace(/index\.html$/,'')===RAIZ;
-function idDemo(){var d=String(q.d||'').toLowerCase();if(/^[a-z0-9][a-z0-9-]{2,29}$/.test(d)){ls('s',DK,JSON.stringify({id:d,t:Date.now()}));return d}
+function idDemo(){var d=String(q.d||'quokka4').toLowerCase();if(/^[a-z0-9][a-z0-9-]{2,29}$/.test(d)){ls('s',DK,JSON.stringify({id:d,t:Date.now()}));return d}
   var g=null;try{g=JSON.parse(ls('g',DK)||'null')}catch(e){}
   if(!g||!/^[a-z0-9][a-z0-9-]{2,29}$/.test(g.id||''))return '';
   /* el sitio principal sin ?d= solo recuerda la demo un rato (para "Volver al sitio"); reservar, panel y las demás páginas, 90 días */
