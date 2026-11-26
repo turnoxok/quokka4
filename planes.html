@@ -43,7 +43,12 @@ window.__planes={clave:clave,cache:c,foto:T.listo.then(function(){return T.demo&
   h1{font-family:'Baloo 2','Montserrat',system-ui,sans-serif;font-size:clamp(2rem,5.4vw,3.4rem);line-height:1.02;letter-spacing:-.01em;font-weight:800;margin-bottom:12px}
   h1 em{font-style:normal;color:var(--cy)}
   .lead{max-width:38em;opacity:.88;line-height:1.6;margin-bottom:34px;font-size:clamp(.98rem,1.9vw,1.1rem)}
-  .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;align-items:stretch}
+  .plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:20px;align-items:stretch}
+  .saltabs{display:flex;gap:10px;flex-wrap:wrap;margin-top:26px}
+  .saltabs[hidden]{display:none}
+  .saltabs button{font:inherit;font-weight:700;color:var(--fg);background:rgba(235,235,239,.08);border:1.5px solid rgba(235,235,239,.22);border-radius:999px;padding:11px 18px;cursor:pointer;min-height:44px}
+  .saltabs button[aria-pressed=true]{background:var(--pc,var(--ac));color:var(--pt,#1a1a1a);border-color:var(--pc,var(--ac))}
+  .saltabs+.plans{margin-top:16px!important}
   .plan{position:relative;display:flex;flex-direction:column;background:rgba(235,235,239,.08);border:1.5px solid rgba(235,235,239,.16);border-radius:26px;padding:26px 22px 22px}
   .plan{--pc:var(--ac);--pt:var(--t-1e3a19,#1e3a19);background:color-mix(in srgb,var(--pc) 16%,rgba(0,0,0,.1));border-color:color-mix(in srgb,var(--pc) 55%,transparent)}
   .plan:before{content:"";display:block;width:54px;height:6px;border-radius:6px;background:var(--pc);margin:-4px 0 14px}
@@ -174,6 +179,7 @@ window.__planes={clave:clave,cache:c,foto:T.listo.then(function(){return T.demo&
     <div class="incl" id="incluido" aria-label="Incluido en todos los combos"></div>
   </div>
 
+  <div class="saltabs" id="salTabs" role="group" aria-label="Elegí el salón" hidden></div>
   <div class="plans" id="planes" style="margin-top:26px" aria-busy="true"><div class="plan sk"><i></i><i></i><i></i><i></i></div><div class="plan sk"><i></i><i></i><i></i><i></i></div><div class="plan sk"><i></i><i></i><i></i><i></i></div></div>
 
   <section class="blk" aria-labelledby="agr">
@@ -265,12 +271,22 @@ function armar(c){
   show('faqSec',B.faq);$('faq').innerHTML=(B.faq||[]).map(function(x){return '<details><summary>'+esc(x.titulo)+'</summary><p>'+esc(x.texto)+'</p></details>'}).join('');
   /* planes, horarios y precios */
   var planes=c.planes||[],turnos=(c.turnos||[]).slice().sort(function(a,b){return a.inicio<b.inicio?-1:1});
+  /* con más de un salón: una pestaña por salón; cada uno muestra sus combos y sus horarios */
+  var sals=c.salones||[],tabs=$('salTabs');
+  if(sals.length>1){var sid=window.__salSel&&sals.some(function(x){return x.id===window.__salSel})?window.__salSel:sals[0].id;
+    planes=planes.filter(function(p){return !p.salonId||p.salonId===sid});turnos=turnos.filter(function(t){return t.salonId===sid});
+    var PL=paleta();if(PL){tabs.style.setProperty('--pc',PL[0]);tabs.style.setProperty('--pt',lum(PL[0])>.6?'#1a1a1a':'#fff')}
+    tabs.innerHTML=sals.map(function(x){return '<button type="button" data-s="'+esc(x.id)+'" aria-pressed="'+(x.id===sid)+'">'+esc(x.nombre)+'</button>'}).join('');
+    tabs.onclick=function(e){var b=e.target.closest('button[data-s]');if(b&&b.getAttribute('aria-pressed')!=='true'){window.__salSel=b.getAttribute('data-s');armar(c)}};tabs.hidden=false}else{tabs.hidden=true;tabs.innerHTML=''}
   if(!planes.length){$('planes').innerHTML='<p class="cargando">Los planes se publican muy pronto. <a href="./reservar/">Ver disponibilidad</a></p>';$('upgrade').innerHTML='';$('promoSec').hidden=true;return}
   var pr=function(p,t){return p.precios&&p.precios[t.id]!=null?Number(p.precios[t.id]):p.precio};
   var promo=function(t){return /promo/i.test(t.etiqueta||'')};
   var grupos=[],idx={};
   turnos.forEach(function(t){var k=t.dias+'|'+promo(t)+'|'+planes.map(function(p){return pr(p,t)}).join(',');
     if(idx[k]==null){idx[k]=grupos.length;grupos.push({dias:t.dias,promo:promo(t),et:t.etiqueta,turnos:[],ref:t})}grupos[idx[k]].turnos.push(t)});
+  /* si todos los horarios cuestan lo mismo (y no hay promo), una sola franja con los horarios de cada día */
+  var unif=grupos.length>1&&!grupos.some(function(g){return g.promo})&&turnos.every(function(t){return planes.every(function(p){return pr(p,t)===pr(p,turnos[0])})});
+  if(unif)grupos=[{dias:'',promo:false,unif:true,turnos:turnos,ref:turnos[0]}];
   var m0=planes[0];grupos.sort(function(a,b){return pr(m0,a.ref)-pr(m0,b.ref)||(a.ref.inicio<b.ref.inicio?-1:1)});
   var multi=grupos.length>1;
   var cuota=function(p){return p.senaTipo==='pct'?'Con la seña del '+p.senaValor+'% te queda la fecha y el precio congelados.':'Con la seña te queda la fecha y el precio congelados.'};
@@ -281,11 +297,13 @@ function armar(c){
     var minP=Math.min.apply(null,grupos.map(function(g){return pr(p,g.ref)}));
     var bands=grupos.map(function(g){var v=pr(p,g.ref);
       var tag=multi&&v===minP?'<span class="tag">⭐ Mejor precio</span>':'';
+      if(g.unif){var pd={},ord=[];g.turnos.forEach(function(t){if(!pd[t.dias]){pd[t.dias]=[];ord.push(t.dias)}pd[t.dias].push(hh(t.inicio)+' a '+hh(t.fin))});
+        return '<div class="band"><h4>Todos los horarios</h4><div class="hrs">'+ord.map(function(k){return '<b>'+esc(dias(k))+':</b> '+esc(pd[k].join(' · '))+' hs'}).join('<br>')+'</div><div class="pr"><strong>'+money(v)+'</strong><em>transferencia o efectivo</em></div></div>'}
       var tit=(g.promo?esc((g.et||'Promo')+' · ')+dias(g.dias).toLowerCase():esc(dias(g.dias)));
       var hrs=g.turnos.map(function(t){return hh(t.inicio)+' a '+hh(t.fin)}).join(' · ')+' hs';
       return '<div class="band">'+tag+'<h4>'+tit+'</h4><div class="hrs">'+esc(hrs)+'</div><div class="pr"><strong>'+money(v)+'</strong><em>transferencia o efectivo</em></div></div>'}).join('');
-    var top=i===Math.floor(planes.length/2)&&planes.length>=3;
-    return '<article class="plan'+(top?' top':'')+'"'+pcStyle(i)+'>'+(window.TEMA&&TEMA.demo?'<span class="ejemplo">Plan de ejemplo</span>':'')+(top&&c.pgDestacado?'<span class="badge">'+esc(c.pgDestacado)+'</span>':'')+'<h2>'+esc(p.nombre)+'</h2>'+(chips?'<div class="meta">'+chips+'</div>':'')+(resto?'<p class="for">'+esc(resto)+'</p>':'')+'<div class="bands">'+bands+'</div><p class="sena">'+cuota(p)+'</p><a class="go" href="./reservar/">'+esc(c.pgBotonPlan||'Reservar este combo')+'</a></article>'}).join('');
+    var top=!!c.pgDestacado&&i===Math.floor(planes.length/2)&&planes.length>=3;
+    return '<article class="plan'+(top?' top':'')+'"'+pcStyle(i)+'>'+(window.TEMA&&TEMA.demo&&!TEMA.cliente?'<span class="ejemplo">Plan de ejemplo</span>':'')+(top&&c.pgDestacado?'<span class="badge">'+esc(c.pgDestacado)+'</span>':'')+'<h2>'+esc(p.nombre)+'</h2>'+(chips?'<div class="meta">'+chips+'</div>':'')+(resto?'<p class="for">'+esc(resto)+'</p>':'')+'<div class="bands">'+bands+'</div><p class="sena">'+cuota(p)+'</p><a class="go" href="./reservar/">'+esc(c.pgBotonPlan||'Reservar este combo')+'</a></article>'}).join('');
   $('upgrade').innerHTML=planes.map(function(p,i){
     var inv=/hasta\s+(\d+)\s+invitados/i.exec(p.descripcion||''),dif=null;
     if(i>0){var q=planes[i-1];dif=Math.min.apply(null,turnos.map(function(t){return pr(p,t)-pr(q,t)}));if(!isFinite(dif))dif=p.precio-q.precio}

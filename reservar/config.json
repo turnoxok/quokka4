@@ -1,5 +1,23 @@
 {
  "api": "https://script.google.com/macros/s/AKfycbyTcTreVN0lQHTxzxbIEGoyF7g7UCDmAZekwLk_10tdAQSR3SbHWt-_bg1wr3ueZ9VK/exec",
  "volver": "../",
- "cliente": "quokka4"
+ "cliente": "quokka4",
+ "palabras": [
+  [
+   "Planes",
+   "Combos"
+  ],
+  [
+   "planes",
+   "combos"
+  ],
+  [
+   "Plan",
+   "Combo"
+  ],
+  [
+   "plan",
+   "combo"
+  ]
+ ]
 }
