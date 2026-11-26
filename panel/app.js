@@ -1,0 +1,802 @@
+'use strict';
+/* Weeb Reservas — panel del dueño. Sin dependencias ni paso de compilación. Todo el texto se inserta con textContent (nada de innerHTML con datos). */
+const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'], DIAS_L = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const pad = n => String(n).padStart(2, '0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const hoy = () => ymd(new Date());
+const parse = f => { const [y, m, d] = f.split('-').map(Number); return new Date(y, m - 1, d); };
+const fcorta = f => { const d = parse(f); return `${DIAS[d.getDay()]} ${d.getDate()} ${MESES[d.getMonth()].slice(0, 3)}`; };
+const flarga = f => { const d = parse(f); return `${['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][d.getDay()]} ${d.getDate()} de ${MESES[d.getMonth()]}`; };
+const mesDe = f => f.slice(0, 7);
+const sumMes = (mes, n) => { const [y, m] = mes.split('-').map(Number); const d = new Date(y, m - 1 + n, 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
+const nomMes = mes => { const [y, m] = mes.split('-').map(Number); return `${MESES[m - 1]} ${y}`; };
+const money = n => (n < 0 ? '-$' : '$') + Math.abs(Math.round(n || 0)).toLocaleString('es-AR');
+const horas = (i, f) => { let a = +i.slice(0, 2) * 60 + +i.slice(3), b = +f.slice(0, 2) * 60 + +f.slice(3); if (b <= a) b += 1440; const h = (b - a) / 60; return (Number.isInteger(h) ? h : h.toFixed(1)) + ' hs'; };
+const $ = (s, r = document) => r.querySelector(s);
+
+function h(tag, props, ...kids) {
+  const e = document.createElement(tag), post = {};
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v == null || v === false) continue;
+    if (k === 'class') e.className = v; else if (k === 'style') e.style.cssText = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (k === 'value' || k === 'checked') post[k] = v; else e.setAttribute(k, v === true ? '' : v);
+  }
+  kids.flat(Infinity).forEach(c => { if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(String(c))); });
+  if ('value' in post) e.value = post.value; if ('checked' in post) e.checked = !!post.checked;
+  return e;
+}
+const svg = d => { const w = document.createElement('span'); w.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`; return w.firstChild; };
+const IC = { juego: '<circle cx="12" cy="12" r="9"/><path d="M3.5 9.5c5 1.5 12 1.5 17 0M3.5 14.5c5-1.5 12-1.5 17 0M12 3c-3 4-3 14 0 18"/>', agenda: '<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/>', reservas: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>', caja: '<rect x="2" y="6" width="20" height="13" rx="3"/><circle cx="12" cy="12.5" r="3"/>', turnos: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', web: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>', ajustes: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>' };
+
+/* ───── estado y API ───── */
+const S = { cfg: null, pub: null, token: localStorage.getItem('weeb_token') || '', user: null, view: 'agenda', mes: mesDe(hoy()), reFiltro: 'prox', reQ: '', cajaMes: mesDe(hoy()), salones: [], turnos: [], instalar: null };
+const $app = () => $('#app');
+
+async function fetchSeguro(url, opts) { if (window.TEMA && TEMA.demoId && !TEMA.cliente) { if (!window.DEMO_BACKEND) throw new Error('No se pudo iniciar la demo. Recargá la página.'); return DEMO_BACKEND.fetch(url, opts); } const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 45000); try { return await fetch(url, { ...(opts || {}), signal: ctl.signal }); } catch (e) { throw new Error(e && e.name === 'AbortError' ? 'Está tardando demasiado. Probá de nuevo en un momento.' : 'No hay conexión. Revisá tu internet y probá de nuevo.'); } finally { clearTimeout(tm); } }
+async function llamar(action, data, publico) {
+  const get = publico === 'get';
+  const url = S.cfg.api + (get ? '?' + new URLSearchParams({ action, ...(S.cfg.cliente ? { cl: S.cfg.cliente } : {}), ...(data || {}) }) : '');
+  const r = await fetchSeguro(url, get ? {} : { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, token: S.token, ...(S.cfg.cliente ? { cl: S.cfg.cliente } : {}), ...(data || {}) }) });
+  let j; try { j = await r.json(); } catch (e) { throw new Error('No hay conexión con el servidor. Probá de nuevo.'); }
+  if (!j.ok) { if (j.error === 'NO_AUTORIZADO' && S.token) { salir(true); } const e = new Error(j.mensaje || j.error); e.codigo = j.error; throw e; }
+  return j.data;
+}
+const api = (a, d) => llamar(a, d);
+
+function toast(msg, tipo) { const t = h('div', { class: 'toast ' + (tipo || '') }, msg); document.body.append(t); setTimeout(() => t.remove(), 3200); }
+async function accion(btn, fn) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());   /* un aviso viejo (ej. «Tocá Guardar») no se queda tapando mientras se guarda */
+  const txt = btn && btn.textContent; if (btn) { btn.disabled = true; if (btn.classList && btn.classList.contains('block') && /^Guardar/.test(txt)) btn.textContent = 'Guardando…'; }
+  try { return await fn(); } catch (e) { toast(e.message, 'err'); } finally { if (btn) { btn.disabled = false; btn.textContent = txt; } }
+}
+
+/* ───── sheets ───── */
+let sheetEl = null;
+function sheet(titulo, contenido) {
+  cerrar(true);
+  const back = h('div', { class: 'sheet-back', onpointerdown: e => { back._dn = e.target === back; }, onclick: e => { if (e.target === back && back._dn !== false) cerrar(); back._dn = undefined; } },   /* arrastrar para seleccionar texto y soltar afuera NO cierra */
+    h('div', { class: 'sheet', role: 'dialog', 'aria-label': titulo }, h('div', { class: 'sheet-head' }, h('h3', null, titulo), h('button', { class: 'icon', 'aria-label': 'Cerrar', onclick: () => cerrar() }, '✕')), h('div', { class: 'sheet-body' }, contenido)));
+  /* Enter en un campo pasa al siguiente (como la tecla "Siguiente" del celular) en vez de enviar el formulario a medio completar */
+  back.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' || e.target.tagName !== 'INPUT' || ['submit', 'button', 'checkbox', 'radio'].includes(e.target.type)) return;
+    e.preventDefault(); const cs = [...back.querySelectorAll('input:not([type=hidden]),select,textarea')], i = cs.indexOf(e.target);
+    if (i >= 0 && i < cs.length - 1) cs[i + 1].focus(); else e.target.blur();
+  });
+  document.body.append(back); requestAnimationFrame(() => back.classList.add('open')); sheetEl = back;
+}
+function cerrar(rapido) { if (!sheetEl) return; const s = sheetEl; sheetEl = null; s.classList.remove('open'); if (rapido) s.remove(); else setTimeout(() => s.remove(), 200); }
+const campo = (label, input) => h('label', { class: 'field' }, h('span', null, label), input);
+const inp = (name, p) => h('input', { name, ...p });
+const datos = form => { const o = {}; new FormData(form).forEach((v, k) => { o[k] = v; }); form.querySelectorAll('input[type=checkbox]').forEach(c => { o[c.name] = c.checked; }); return o; };
+
+/* ───── arranque ───── */
+async function iniciar() {
+  S.cfg = await (await fetch('config.json', { cache: 'no-store' })).json();
+  try { S.pub = await llamar('config', {}, 'get'); if (window.TEMA && TEMA.nombre) S.pub.nombre = TEMA.nombre; } catch (e) { S.pub = { nombre: 'Panel', colorPrincipal: '#8149bd', salones: [] }; }
+  marca();
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.instalar = e; if (S.user && !sheetEl && S.view === 'ajustes') render(); });
+  if (S.token) { try { S.user = await api('admin.ping'); } catch (e) { S.token = ''; } }
+  /* En una demo no se pide mail ni clave: se entra directo (si la clave inicial fue cambiada, o se tocó Salir, aparece la pantalla de ingreso). */
+  if (!S.user && window.TEMA && TEMA.demoId && !TEMA.cliente && !sessionStorage.getItem('weeb_salio')) {
+    try {
+      await TEMA.listo;
+      const em = (TEMA.demo && TEMA.demo.email) || localStorage.getItem('weeb_email_' + TEMA.demoId) || '';
+      if (em) { const r = await llamar('login', { email: em, clave: 'demo1234' }); await iniciarSesion(r, em); return; }
+    } catch (e) { /* sigue a la pantalla de ingreso */ }
+  }
+  S.user ? await entrar() : pantallaLogin();
+}
+function marca() {
+  document.title = 'Panel · ' + (S.pub.nombre || '');
+}
+function firma() { return h('div', { class: 'firma' }, 'Hecho con ', h('a', { href: 'https://www.tuweeb.com', target: '_blank', rel: 'noopener' }, 'tuweeb')); }
+function logo(alto) { return h('img', { src: (window.TEMA && TEMA.logo) || S.pub.logoUrl || 'weeb-logo.svg', alt: S.pub.nombre || 'tuweeb', style: 'max-height:' + alto + 'px', onerror: ev => { if (!ev.target.dataset.f) { ev.target.dataset.f = 1; ev.target.src = 'weeb-logo.svg'; } } }); }
+
+const volverBtn = () => h('button', { class: 'weeb-back', onclick: () => { if (window.parent !== window) parent.postMessage('weeb-cerrar', location.origin); else location.href = '../'; } }, '← Volver al sitio');
+async function iniciarSesion(r, email) { S.token = r.token; S.user = r; localStorage.setItem('weeb_token', r.token); localStorage.setItem('weeb_email', email); try { localStorage.setItem('weeb_email_' + ((window.TEMA && TEMA.demoId) || ''), email); } catch (e) {} await entrar(); }
+/** Usuario creado sin clave: la elige él mismo la primera vez (solo funciona mientras no tenga una). */
+function pantallaPrimeraClave(email) {
+  const f = h('form', { onsubmit: ev => { ev.preventDefault(); const d = datos(f); if (d.clave.length < 8) return toast('La clave tiene que tener al menos 8 caracteres', 'err'); if (d.clave !== d.repetir) return toast('Las dos claves no coinciden', 'err'); accion($('button', f), async () => { const r = await llamar('primeraClave', { email, clave: d.clave }, true); toast('Clave guardada', 'ok'); await iniciarSesion(r, email); }); } },
+    campo('Mail', inp('email', { type: 'email', value: email, readonly: true, autocomplete: 'username' })),
+    campo('Elegí tu clave (mínimo 8 caracteres)', inp('clave', { type: 'password', required: true, minlength: 8, autocomplete: 'new-password' })),
+    campo('Repetí la clave', inp('repetir', { type: 'password', required: true, minlength: 8, autocomplete: 'new-password' })), h('button', { class: 'btn block' }, 'Guardar y entrar'));
+  $app().replaceChildren(h('div', { class: 'login' }, logo(64), h('h1', null, S.pub.nombre || 'Panel'), h('p', { class: 'sub' }, 'Es tu primera vez: elegí la clave con la que vas a entrar siempre.'), f, h('button', { type: 'button', class: 'link', onclick: pantallaLogin }, 'Volver'), firma()));
+}
+/** «Olvidé mi clave»: 1) mail → llega un código; 2) código + clave nueva. Sin esperar a nadie. */
+function pantallaOlvide(email0) {
+  const wa = m => 'https://wa.me/5493435020970?text=' + encodeURIComponent('Hola tuweeb, no me llega el código para cambiar la clave del panel de ' + (S.pub.nombre || 'mi salón') + (m ? '. Mi mail: ' + m : ''));
+  const paso1 = h('form', { onsubmit: ev => { ev.preventDefault(); const d = datos(paso1); accion($('button', paso1), async () => { await llamar('olvideClave', { email: d.email }, true); toast('Listo, revisá tu mail', 'ok'); paso2(d.email); }); } },
+    campo('Tu mail', inp('email', { type: 'email', required: true, autocomplete: 'username', value: email0 || localStorage.getItem('weeb_email') || '' })), h('button', { class: 'btn block' }, 'Mandarme el código'));
+  const paso2 = email => {
+    const f = h('form', { onsubmit: ev => { ev.preventDefault(); const d = datos(f); if (d.clave.length < 8) return toast('La clave tiene que tener al menos 8 caracteres', 'err'); if (d.clave !== d.repetir) return toast('Las dos claves no coinciden', 'err'); accion($('button', f), async () => { const r = await llamar('restablecerClave', { email, codigo: d.codigo, clave: d.clave }, true); toast('Clave nueva guardada', 'ok'); await iniciarSesion(r, email); }); } },
+      campo('Código que te llegó por mail', inp('codigo', { required: true, inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: '6', placeholder: '6 números' })),
+      campo('Clave nueva (mínimo 8 caracteres)', inp('clave', { type: 'password', required: true, minlength: 8, autocomplete: 'new-password' })),
+      campo('Repetí la clave', inp('repetir', { type: 'password', required: true, minlength: 8, autocomplete: 'new-password' })), h('button', { class: 'btn block' }, 'Guardar y entrar'));
+    $app().replaceChildren(h('div', { class: 'login' }, logo(64), h('h1', null, S.pub.nombre || 'Panel'), h('p', { class: 'sub' }, 'Te mandamos un código a ' + email + '. Vale 15 minutos.'), f,
+      h('button', { type: 'button', class: 'link', onclick: () => window.open(wa(email), '_blank', 'noopener') }, '¿No te llega? Escribinos por WhatsApp'), h('button', { type: 'button', class: 'link', onclick: pantallaLogin }, 'Volver'), firma()));
+  };
+  $app().replaceChildren(h('div', { class: 'login' }, logo(64), h('h1', null, S.pub.nombre || 'Panel'), h('p', { class: 'sub' }, 'Escribí tu mail y te mandamos un código para elegir una clave nueva.'), paso1, h('button', { type: 'button', class: 'link', onclick: pantallaLogin }, 'Volver'), firma()));
+}
+function pantallaLogin() {
+  const f = h('form', { onsubmit: ev => { ev.preventDefault(); const d = datos(f), b = $('button', f); accion(b, async () => { let r; try { r = await llamar('login', { email: d.email, clave: d.clave }); } catch (e) { if (e.codigo === 'CLAVE_PENDIENTE') return pantallaPrimeraClave(d.email); throw e; } await iniciarSesion(r, d.email); }); } },
+    campo('Mail', inp('email', { type: 'email', required: true, autocomplete: 'username', value: localStorage.getItem('weeb_email_' + ((window.TEMA && TEMA.demoId) || '')) || (window.TEMA && TEMA.demo && TEMA.demo.email) || localStorage.getItem('weeb_email') || '' })),
+    campo('Clave', inp('clave', { type: 'password', required: true, autocomplete: 'current-password', value: (window.TEMA && TEMA.demoId) ? 'demo1234' : '' })), h('button', { class: 'btn block' }, 'Entrar'));
+  $app().replaceChildren(h('div', { class: 'login' }, logo(64), h('h1', null, S.pub.nombre || 'Panel'), h('p', { class: 'sub' }, (window.TEMA && TEMA.demoId) ? 'Es una demo: lo que cargues queda guardado en este dispositivo. Clave inicial: demo1234 (la podés cambiar en Seguridad).' : 'Entrá para gestionar tus reservas.'), f, h('button', { type: 'button', class: 'link', onclick: () => pantallaOlvide(datos(f).email) }, '¿Olvidaste tu clave?'), volverBtn(), firma()));
+}
+function salir(vencida) { if (!vencida && window.TEMA && TEMA.demoId) { try { sessionStorage.setItem('weeb_salio', '1'); } catch (e) {} } S.token = ''; S.user = null; localStorage.removeItem('weeb_token'); cerrar(true); if (vencida) toast('La sesión venció. Volvé a entrar.', 'err'); pantallaLogin(); }
+
+async function entrar() {
+  await cargarBase(); render();
+}
+/** Lo que vale un plan en un horario: el precio puntual si está cargado, si no el precio base. */
+const precioEn = (pl, turnoId) => (pl.precios && pl.precios[turnoId] != null && pl.precios[turnoId] !== '' ? Number(pl.precios[turnoId]) : pl.precio);
+const rangoPlan = pl => { const v = [pl.precio, ...Object.values(pl.precios || {}).map(Number)].filter(n => n > 0), a = Math.min(...v), b = Math.max(...v); return a === b ? money(a) : money(a) + ' a ' + money(b); };
+async function cargarBase() { [S.salones, S.turnos] = await Promise.all([api('admin.salones'), api('admin.turnos')]); }
+const salonDe = id => (S.salones.find(s => s.id === id) || {}).nombre || '';
+
+const ACTIVAR = /[?&]activar=1/.test(location.search); if (ACTIVAR) S.view = 'web';
+const VISTAS = { agenda: ['Agenda', vAgenda], reservas: ['Reservas', vReservas], caja: ['Caja', vCaja], juego: ['Juego', vJuego], turnos: ['Planes', vTurnos], web: ['Mi web', vWeb], ajustes: ['Ajustes', vAjustes] };
+function render() {
+  const main = h('main', { class: 'wrap', id: 'vista' });
+  const visibles = Object.entries(VISTAS).filter(([k]) => k !== 'juego' || (S.pub && S.pub.juegoActivo));
+  const tabs = h('nav', { class: 'tabs' + (visibles.length > 6 ? ' tabs7' : '') }, visibles.map(([k, [t]]) => h('button', { class: S.view === k ? 'on' : '', onclick: () => { S.view = k; render(); } }, svg(IC[k]), t)));
+  $app().replaceChildren(
+    volverBtn(),
+    h('header', { class: 'top' }, h('span', { class: 'back-sp' }), h('div', { class: 'name' }, S.pub.nombre), h('button', { class: 'icon', title: 'Salir', 'aria-label': 'Salir', onclick: () => salir() }, '⎋')),
+    main, firma(), tabs);
+  VISTAS[S.view][1](main);
+}
+const cargando = el => { if (cargandoSilencioso) { cargandoSilencioso = false; return; } el.replaceChildren(h('p', { class: 'empty' }, h('img', { class: 'tw3d', src: 'tuweeb-icono.svg', alt: 'tuweeb' }))); };
+const fab = fn => h('button', { class: 'fab', 'aria-label': 'Nueva reserva', onclick: fn }, '+');
+
+/* ───── AGENDA ───── */
+async function vAgenda(main) {
+  cargando(main);
+  let ag; try { ag = await api('admin.agenda', { mes: S.mes }); } catch (e) { main.replaceChildren(h('p', { class: 'empty' }, e.message)); return; }
+  const [y, m] = S.mes.split('-').map(Number), n = new Date(y, m, 0).getDate(), off = (new Date(y, m - 1, 1).getDay() + 6) % 7, hoyF = hoy();
+  const celdas = [...['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'].map(d => h('div', { class: 'dow' }, d)), ...Array(off).fill(0).map(() => h('div', { class: 'day off' }))];
+  let pend = 0, ocup = 0;
+  for (let d = 1; d <= n; d++) {
+    const f = `${S.mes}-${pad(d)}`, sl = ag.dias[f] || [];
+    sl.forEach(s => { if (s.estado === 'ocupado') { ocup++; if (s.reservaEstado === 'pendiente') pend++; } });
+    celdas.push(h('button', { class: 'day' + (f === hoyF ? ' hoy' : '') + (f < hoyF ? ' past' : ''), onclick: () => diaSheet(f, ag) }, h('b', null, d),
+      h('div', { class: 'dots' }, sl.map(s => h('i', { class: 'dot ' + (s.estado === 'ocupado' ? (s.reservaEstado === 'pendiente' ? 'pend' : 'ocup') : s.estado === 'bloqueado' ? 'bloq' : '') })))));
+  }
+  main.replaceChildren(
+    h('div', { class: 'bar' }, h('div', { class: 'row' }, h('button', { class: 'icon', 'aria-label': 'Mes anterior', onclick: () => { S.mes = sumMes(S.mes, -1); vAgenda(main); } }, '‹'), h('h2', null, nomMes(S.mes)), h('button', { class: 'icon', 'aria-label': 'Mes siguiente', onclick: () => { S.mes = sumMes(S.mes, 1); vAgenda(main); } }, '›')),
+      h('button', { class: 'btn soft sm', onclick: () => { S.mes = mesDe(hoyF); vAgenda(main); } }, 'Hoy')),
+    h('div', { class: 'cal' }, celdas),
+    h('div', { class: 'legend' }, h('span', null, h('i', { class: 'dot' }), 'Libre'), h('span', null, h('i', { class: 'dot ocup' }), 'Reservado'), h('span', null, h('i', { class: 'dot pend' }), 'Pendiente de pago'), h('span', null, h('i', { class: 'dot bloq' }), 'Bloqueado')),
+    h('p', { class: 'muted small' }, `${ocup} turnos reservados este mes` + (pend ? ` · ${pend} pendientes de pago` : '')), fab(() => nuevaReserva({})));
+}
+/* Tipos de evento (config.json "tipos"): el borde de cada turno toma el color de su tipo (ej. bautismos). Sin "tipos" no cambia nada. */
+function colorearTipos(cont, sl) {
+  const T = (S.cfg && S.cfg.tipos) || []; if (!T.length) return;
+  const tipoDe = txt => { const m = T.find(x => x.patron && new RegExp(x.patron, 'i').test(String(txt || ''))), d = T.find(x => !x.patron); return m ? m.clave : (d ? d.clave : ''); };
+  [...cont.children].forEach((el, i) => { const t = T.find(x => x.clave === tipoDe(sl[i] && sl[i].etiqueta)); if (t && t.color) { el.style.borderLeft = '7px solid ' + t.color; } });
+}
+function diaSheet(f, ag) {
+  const sl = ag.dias[f] || [], multi = S.salones.filter(s => s.activo).length > 1, cont = h('div', { class: 'list' });
+  if (!sl.length) cont.append(h('p', { class: 'empty' }, 'No hay turnos configurados para este día.'));
+  sl.forEach(s => {
+    const info = h('div', { class: 'main' }, h('b', null, `${s.inicio} a ${s.fin}`, s.etiqueta ? ' · ' + s.etiqueta : ''), h('span', { class: 'muted small' }, (multi ? salonDe(s.salonId) + ' · ' : '') + horas(s.inicio, s.fin) + ' · ' + money(s.precio)));
+    if (s.estado === 'ocupado') cont.append(h('button', { class: 'item', onclick: () => detalle(s.reservaId) }, info, h('div', null, h('div', null, s.nombre), h('span', { class: 'chip ' + s.reservaEstado }, s.reservaEstado))));
+    else if (s.estado === 'bloqueado') cont.append(h('div', { class: 'item static' }, info, h('span', { class: 'muted small' }, 'Bloqueado' + (s.motivo ? ': ' + s.motivo : '')), h('button', { class: 'btn sm line', onclick: e => accion(e.target, async () => { await api('admin.desbloquear', { id: s.bloqueoId }); toast('Desbloqueado', 'ok'); cerrar(); render(); }) }, 'Desbloquear')));
+    else cont.append(h('div', { class: 'item static' }, info, h('button', { class: 'btn sm', onclick: () => nuevaReserva({ fecha: f, turnoId: s.turnoId }) }, 'Reservar'),
+      h('button', { class: 'btn sm line', onclick: e => accion(e.target, async () => { await api('admin.bloquear', { desde: f, salonId: s.salonId, turnoId: s.turnoId }); toast('Turno bloqueado', 'ok'); cerrar(); render(); }) }, 'Bloquear')));
+  });
+  colorearTipos(cont, sl);
+  cont.append(h('div', { class: 'row', style: 'margin-top:.8rem' }, h('button', { class: 'btn soft sm', onclick: () => nuevaReserva({ fecha: f }) }, 'Reserva a otra hora o fecha'),
+    h('button', { class: 'btn line sm', onclick: e => bloqueoNuevo(f) }, 'Bloquear el día…')));
+  sheet(flarga(f), cont);
+}
+
+/* ───── DETALLE DE RESERVA ───── */
+function leerArchivo(f) {
+  return new Promise((ok, mal) => {
+    const fin = (blob, tipo) => { const fr = new FileReader(); fr.onload = () => ok({ nombre: f.name, tipo, datos: String(fr.result).split(',')[1] || '' }); fr.onerror = () => mal(new Error('No pudimos leer el archivo')); fr.readAsDataURL(blob); };
+    if (!/^image\/(jpeg|png|webp)$/.test(f.type)) { if (f.size > 4.5 * 1048576) return mal(new Error('El archivo pesa demasiado (máximo 4 MB)')); return fin(f, f.type); }
+    const img = new Image(), url = URL.createObjectURL(f);
+    img.onload = () => { const k = Math.min(1, 1600 / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); c.toBlob(b => b ? fin(b, 'image/jpeg') : mal(new Error('No pudimos preparar la foto')), 'image/jpeg', 0.82); };
+    img.onerror = () => { URL.revokeObjectURL(url); mal(new Error('No pudimos abrir esa imagen. Probá con otra foto o un PDF.')); };
+    img.src = url;
+  });
+}
+function bloqueComprobante(id, c) {
+  const inp = h('input', { type: 'file', accept: 'image/*,application/pdf', style: 'display:none' });
+  inp.addEventListener('change', () => { const f = inp.files && inp.files[0]; if (!f) return; accion($('.subir', inp.parentNode), async () => { const a = await leerArchivo(f); await api('admin.comprobante', { id, ...a }); toast('Comprobante guardado', 'ok'); await refrescar(); detalle(id); }); });
+  const esImg = c && c.tipo !== 'pdf', cuando = c && c.fecha ? new Date(c.fecha).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+  return h('div', null, h('h3', { class: 'sec' }, 'Comprobante de la seña'),
+    c ? h('a', { class: 'comp', href: c.url, target: '_blank', rel: 'noopener' }, esImg ? h('img', { src: 'https://drive.google.com/thumbnail?id=' + c.id + '&sz=w800', alt: 'Comprobante', loading: 'lazy', onerror: e => e.target.replaceWith(h('span', { class: 'pdf' }, 'FOTO')) }) : h('span', { class: 'pdf' }, 'PDF'),
+      h('span', { class: 'main' }, h('b', null, c.nombre), h('span', { class: 'muted small' }, (c.origen === 'cliente' ? 'Lo subió el cliente' : 'Lo cargaste vos') + (cuando ? ' · ' + cuando : '')), h('span', { class: 'small' }, 'Tocá para abrirlo'))) :
+      h('p', { class: 'muted small' }, 'Todavía no hay comprobante. Lo puede subir el cliente al reservar, o lo cargás vos acá (foto o PDF).'),
+    h('div', { class: 'row', style: 'margin-top:.6rem' }, h('button', { class: 'btn soft subir', onclick: () => inp.click() }, c ? 'Reemplazar' : 'Subir comprobante'), inp,
+      c ? h('button', { class: 'btn bad', onclick: e => { if (!confirm('¿Quitar el comprobante? Se manda a la papelera de Drive.')) return; accion(e.target, async () => { await api('admin.comprobanteEliminar', { id }); toast('Comprobante quitado', 'ok'); await refrescar(); detalle(id); }); } }, 'Quitar') : ''));
+}
+/** Link para que el cliente vea su reserva (lleva el código cargado). Usa la URL de Config si está; si no, la carpeta /reservar/ del mismo sitio. */
+function linkReserva(r) { const b = S.pub.urlReservas || new URL('../reservar/', location.href).href; return b + (b.indexOf('?') < 0 ? '?' : '&') + 'codigo=' + (r.codigo || ''); }
+/* Mensaje con el contrato (config.json "contrato": {boton, texto con {nombre}, nota}): abre WhatsApp con el texto listo para el papá o la mamá; el archivo del contrato se adjunta a mano en el chat. Sin "contrato" no aparece. */
+function waContrato(r) {
+  const C = S.cfg && S.cfg.contrato, tel = String(r.telefono || '').replace(/\D/g, ''); if (!C || !tel) return '';
+  const num = tel.length <= 10 ? '54' + tel : tel, txt = String(C.texto || '').replace(/\{nombre\}/g, String(r.nombre || '').split(' ')[0]), q = encodeURIComponent(txt);
+  /* en el celular se abre la app de WhatsApp directo (así los emojis llegan bien); en la compu, WhatsApp Web */
+  const cel = /Android|iPhone|iPad/i.test(navigator.userAgent), url = cel ? 'whatsapp://send?phone=' + num + '&text=' + q : 'https://wa.me/' + num + '?text=' + q;
+  const copiar = e => { e.preventDefault(); const ok = () => toast('Texto copiado: pegalo en el chat', 'ok'); try { navigator.clipboard.writeText(txt).then(ok, () => toast('No se pudo copiar', 'err')); } catch (x) { toast('No se pudo copiar', 'err'); } window.open('https://wa.me/' + num, '_blank'); };
+  return [h('a', { class: 'btn soft', href: url, target: '_blank', rel: 'noopener', title: C.nota || '' }, C.boton || 'Enviar contrato'), h('a', { class: 'btn soft', href: '#', onclick: copiar }, 'Copiar texto y abrir chat')];
+}
+async function detalle(id) {
+  sheet('Reserva', h('p', { class: 'empty' }, h('img', { class: 'tw3d', src: 'tuweeb-icono.svg', alt: 'tuweeb' })));
+  let d; try { d = await api('admin.reserva', { id }); } catch (e) { cerrar(); toast(e.message, 'err'); return; }
+  const r = d.reserva, tel = r.telefono.replace(/\D/g, ''), pct = r.total ? Math.min(100, Math.round(r.pagado / r.total * 100)) : 0;
+  const wa = tel ? 'https://wa.me/' + (tel.length <= 10 ? '54' + tel : tel) + '?text=' + encodeURIComponent(`Hola ${r.nombre.split(' ')[0]}! Te escribimos de ${S.pub.nombre} por tu reserva del ${flarga(r.fecha)} de ${r.inicio} a ${r.fin} hs.\n\nTu código de reserva es ${r.codigo || r.id}. Con ese código o con este link podés ver el estado, el saldo y subir el comprobante de la seña:\n${linkReserva(r)}`) : '';
+  const pf = h('form', { onsubmit: ev => { ev.preventDefault(); const x = datos(pf); accion($('button', pf), async () => { await api('admin.pago', { id, monto: x.monto, metodo: x.metodo, fecha: x.fecha, nota: x.nota }); toast('Pago registrado', 'ok'); await refrescar(); detalle(id); }); } },
+    h('div', { class: 'grid2' }, campo('Monto', inp('monto', { type: 'number', step: '1', required: true, value: r.estado === 'pendiente' && r.sena > r.pagado ? r.sena - r.pagado : Math.max(0, r.saldo) })),
+      campo('Medio', h('select', { name: 'metodo' }, ['efectivo', 'transferencia', 'mercadopago', 'otro'].map(m => h('option', { value: m }, m === 'mercadopago' ? 'Mercado Pago' : m[0].toUpperCase() + m.slice(1))))) ),
+    h('div', { class: 'grid2' }, campo('Fecha', inp('fecha', { type: 'date', value: hoy(), required: true })), campo('Nota', inp('nota', { placeholder: 'Opcional' }))),
+    h('button', { class: 'btn block' }, 'Registrar pago'), h('p', { class: 'muted small' }, 'Para una devolución cargá el monto en negativo.'));
+  const cuerpo = h('div', null,
+    h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', null, r.nombre), h('span', { class: 'chip ' + r.estado }, r.estado)),
+    h('dl', { class: 'kv' }, h('dt', null, 'Fecha'), h('dd', null, flarga(r.fecha)), h('dt', null, 'Horario'), h('dd', null, `${r.inicio} a ${r.fin} (${horas(r.inicio, r.fin)})` + (S.salones.length > 1 ? ' · ' + salonDe(r.salonId) : '')),
+      h('dt', null, 'Contacto'), h('dd', null, r.telefono ? h('a', { href: 'tel:' + r.telefono }, r.telefono) : '—', r.email ? [' · ', h('a', { href: 'mailto:' + r.email }, r.email)] : ''),
+      r.plan ? [h('dt', null, 'Plan'), h('dd', null, r.plan)] : '', h('dt', null, 'Invitados'), h('dd', null, r.personas || '—'), r.nota ? [h('dt', null, 'Nota'), h('dd', null, r.nota)] : '', h('dt', null, 'Origen'), h('dd', null, r.origen === 'manual' ? 'Cargada a mano' : 'Web'),
+      r.estado === 'pendiente' && r.venceEn ? [h('dt', null, 'Vence'), h('dd', null, new Date(r.venceEn).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }))] : '', h('dt', null, 'Código'), h('dd', null, h('b', { style: 'letter-spacing:.18em' }, r.codigo || r.id))),
+    h('div', { class: 'money' }, h('div', null, h('b', null, money(r.total)), h('span', null, 'Total')), h('div', null, h('b', null, money(r.sena)), h('span', null, 'Seña')), h('div', null, h('b', null, money(r.pagado)), h('span', null, 'Pagado')), h('div', null, h('b', { class: r.saldo > 0 ? 'neg' : 'pos' }, money(r.saldo)), h('span', null, 'Saldo'))),
+    h('div', { class: 'progress' }, h('i', { style: 'width:' + pct + '%' })),
+    bloqueComprobante(id, d.comprobante),
+    h('h3', { class: 'sec' }, 'Pagos'), d.pagos.length ? h('div', { class: 'list' }, d.pagos.map(p => h('div', { class: 'item static' }, h('div', { class: 'when' }, fcorta(p.fecha)), h('div', { class: 'main' }, h('b', null, money(p.monto)), h('span', { class: 'muted small' }, p.metodo + (p.nota ? ' · ' + p.nota : ''))),
+      h('button', { class: 'icon', 'aria-label': 'Eliminar pago', onclick: e => { if (!confirm('¿Eliminar este pago?')) return; accion(e.target, async () => { await api('admin.pagoEliminar', { pagoId: p.id }); await refrescar(); detalle(id); }); } }, '🗑')))) : h('p', { class: 'muted small' }, 'Todavía no hay pagos.'),
+    r.estado !== 'cancelada' && r.estado !== 'vencida' ? [h('h3', { class: 'sec' }, 'Registrar pago'), pf] : '',
+    h('h3', { class: 'sec' }, 'Acciones'),
+    h('div', { class: 'row' },
+      r.estado === 'pendiente' ? h('button', { class: 'btn', onclick: e => accion(e.target, async () => { await api('admin.actualizarReserva', { id, estado: 'confirmada' }); toast('Reserva confirmada', 'ok'); await refrescar(); detalle(id); }) }, 'Confirmar sin pago') : '',
+      r.estado === 'cancelada' || r.estado === 'vencida' ? h('button', { class: 'btn', onclick: e => accion(e.target, async () => { await api('admin.actualizarReserva', { id, estado: 'confirmada' }); toast('Reserva reactivada', 'ok'); await refrescar(); detalle(id); }) }, 'Reactivar') : '',
+      h('button', { class: 'btn soft', onclick: () => editar(r) }, 'Editar / mover'), wa ? h('a', { class: 'btn soft', href: wa, target: '_blank', rel: 'noopener' }, 'Enviar link por WhatsApp') : '', waContrato(r), h('button', { class: 'btn soft', onclick: e => { navigator.clipboard && navigator.clipboard.writeText(linkReserva(r)); e.target.textContent = '¡Link copiado!'; setTimeout(() => (e.target.textContent = 'Copiar link'), 1800); } }, 'Copiar link'),
+      r.estado !== 'cancelada' && r.estado !== 'vencida' ? h('button', { class: 'btn bad', onclick: e => { if (!confirm('¿Cancelar la reserva? El turno queda libre.')) return; accion(e.target, async () => { await api('admin.cancelar', { id }); toast('Reserva cancelada', 'ok'); await refrescar(); detalle(id); }); } }, 'Cancelar reserva') : ''));
+  sheet('Reserva', cuerpo);
+}
+function refrescar() { cargandoSilencioso = true; return Promise.resolve().then(() => { const m = $('#vista'); if (m) VISTAS[S.view][1](m); }); }
+let cargandoSilencioso = false;
+
+function editar(r) {
+  const f = h('form', { onsubmit: ev => { ev.preventDefault(); const x = datos(f); accion($('button.btn:not(.line)', f), async () => { const cambioPlan = x.planId && x.planId !== r.planId, datosEd = { id: r.id, nombre: x.nombre, telefono: x.telefono, email: x.email, personas: x.personas, nota: x.nota }; if (cambioPlan) datosEd.planId = x.planId; if (!cambioPlan || String(x.total) !== String(r.total)) datosEd.total = x.total; if (!cambioPlan || String(x.sena) !== String(r.sena)) datosEd.sena = x.sena; await api('admin.actualizarReserva', datosEd); toast('Guardado', 'ok'); await refrescar(); detalle(r.id); }); } },
+    campo('Nombre', inp('nombre', { required: true, value: r.nombre })), h('div', { class: 'grid2' }, campo('Teléfono', inp('telefono', { value: r.telefono })), campo('Mail', inp('email', { type: 'email', value: r.email }))),
+    (S.pub.planes || []).length ? campo('Plan (cambiarlo recalcula total y seña)', h('select', { name: 'planId' }, h('option', { value: '' }, r.plan ? r.plan + ' (actual)' : 'Sin plan'), (S.pub.planes || []).filter(pl => pl.id !== r.planId).map(pl => h('option', { value: pl.id }, pl.nombre + ' · ' + money(precioEn(pl, r.turnoId)))))) : '',
+    h('div', { class: 'grid2' }, campo('Invitados', inp('personas', { type: 'number', value: r.personas })), campo('Total $', inp('total', { type: 'number', value: r.total }))), campo('Seña $', inp('sena', { type: 'number', value: r.sena })),
+    campo('Nota', h('textarea', { name: 'nota', rows: 2 }, r.nota)), h('button', { class: 'btn block' }, 'Guardar cambios'),
+    h('h3', { class: 'sec' }, 'Mover a otro día o turno'), moverUI(r), h('button', { type: 'button', class: 'btn line block', style: 'margin-top:1rem', onclick: () => detalle(r.id) }, 'Volver'));
+  sheet('Editar reserva', f);
+}
+function moverUI(r) {
+  const out = h('div', { class: 'slotbtns' }), fi = inp('nuevaFecha', { type: 'date', value: r.fecha });
+  const cargar = async () => { out.replaceChildren(h('img', { class: 'tw3d', src: 'tuweeb-icono.svg', alt: 'tuweeb' })); try { const ag = await api('admin.agenda', { mes: mesDe(fi.value) }); const sl = (ag.dias[fi.value] || []).filter(s => s.estado === 'libre'); out.replaceChildren(...(sl.length ? sl.map(s => h('button', { type: 'button', onclick: e => { if (!confirm(`¿Mover la reserva al ${flarga(fi.value)} de ${s.inicio} a ${s.fin}?`)) return; accion(e.target, async () => { await api('admin.actualizarReserva', { id: r.id, fecha: fi.value, turnoId: s.turnoId }); toast('Reserva movida', 'ok'); await refrescar(); detalle(r.id); }); } }, `${s.inicio} a ${s.fin}`)) : [h('span', { class: 'muted small' }, 'No hay turnos libres ese día.')])); } catch (e) { out.replaceChildren(e.message); } };
+  fi.addEventListener('change', cargar); return h('div', null, campo('Nueva fecha', fi), out);
+}
+
+/* ───── NUEVA RESERVA MANUAL ───── */
+function nuevaReserva(pre) {
+  const st = { fecha: pre.fecha || hoy(), turnoId: pre.turnoId || '', slots: [], planes: [] };
+  const planSel = h('select', { name: 'planId' }), planBox = h('span', { class: 'field', hidden: true }, h('span', { style: 'display:block;font-size:.82rem;color:var(--mute);font-weight:600;margin-bottom:.25rem' }, 'Plan'), planSel);
+  const slotsEl = h('div', { class: 'slotbtns' }), fi = inp('fecha', { type: 'date', required: true, value: st.fecha }), tot = inp('total', { type: 'number', placeholder: 'Precio del turno' }), sen = inp('sena', { type: 'number', placeholder: 'Seña' });
+  const f = h('form', { onsubmit: ev => { ev.preventDefault(); if (!st.turnoId) { toast('Elegí un turno', 'err'); return; } if (st.planes.length && !planSel.value) { toast('Elegí un plan', 'err'); return; } const x = datos(f); accion($('button.btn.block', f), async () => {
+    const r = await api('admin.crearReserva', { fecha: x.fecha, turnoId: st.turnoId, planId: st.planes.length ? x.planId : undefined, nombre: x.nombre, telefono: x.telefono, email: x.email, personas: x.personas, nota: x.nota, total: x.total, sena: x.sena, pago: Number(x.pagoMonto) ? { monto: x.pagoMonto, metodo: x.pagoMetodo } : undefined });
+    toast('Reserva guardada', 'ok'); S.mes = mesDe(x.fecha); cerrar(); render(); detalle(r.reserva.id); }); } },
+    campo('Fecha', fi), h('span', { class: 'field' }, h('span', { style: 'display:block;font-size:.82rem;color:var(--mute);font-weight:600' }, 'Turno'), slotsEl), planBox,
+    campo('Nombre', inp('nombre', { required: true, placeholder: 'Quién reserva' })), h('div', { class: 'grid2' }, campo('Teléfono', inp('telefono', { type: 'tel' })), campo('Mail (opcional)', inp('email', { type: 'email' }))),
+    h('div', { class: 'grid2' }, campo('Invitados', inp('personas', { type: 'number' })), campo('Total $', tot)), campo('Seña $', sen), campo('Nota', h('textarea', { name: 'nota', rows: 2 })),
+    h('h3', { class: 'sec' }, '¿Ya pagó algo?'), h('div', { class: 'grid2' }, campo('Monto recibido', inp('pagoMonto', { type: 'number', placeholder: '0' })), campo('Medio', h('select', { name: 'pagoMetodo' }, h('option', { value: 'efectivo' }, 'Efectivo'), h('option', { value: 'transferencia' }, 'Transferencia'), h('option', { value: 'otro' }, 'Otro')))),
+    h('button', { class: 'btn block' }, 'Guardar reserva'));
+  const pintar = () => slotsEl.replaceChildren(...(st.slots.length ? st.slots.map(s => h('button', { type: 'button', class: st.turnoId === s.turnoId ? 'on' : '', onclick: () => { st.turnoId = s.turnoId; if (!st.planes.length) { tot.value = s.precio; sen.value = s.sena; } else { const p = st.planes.find(x => x.id === planSel.value); if (p) { tot.value = precioEn(p, st.turnoId); sen.value = calcSena(p); } for (const o of planSel.options) { const p2 = st.planes.find(x => x.id === o.value); if (p2) o.textContent = p2.nombre + ' · ' + money(precioEn(p2, st.turnoId)); } } pintar(); } }, `${s.inicio} a ${s.fin}` + (S.salones.length > 1 ? ' · ' + salonDe(s.salonId) : ''))) : [h('span', { class: 'muted small' }, 'No hay turnos libres ese día. Probá con otra fecha o desbloqueá el turno.')]));
+  const cargar = async () => { slotsEl.replaceChildren(h('img', { class: 'tw3d', src: 'tuweeb-icono.svg', alt: 'tuweeb' })); try { const ag = await api('admin.agenda', { mes: mesDe(fi.value) }); st.slots = (ag.dias[fi.value] || []).filter(s => s.estado === 'libre'); if (!st.slots.some(s => s.turnoId === st.turnoId)) st.turnoId = ''; else if (!st.planes.length) { const s = st.slots.find(s => s.turnoId === st.turnoId); tot.value = s.precio; sen.value = s.sena; } pintar(); } catch (e) { slotsEl.replaceChildren(e.message); } };
+  const calcSena = (p, pr) => { pr = pr ?? precioEn(p, st.turnoId); return p.senaTipo === 'pct' ? Math.round(pr * p.senaValor / 100) : p.senaTipo === 'monto' ? Math.min(pr, p.senaValor) : 0; };
+  planSel.addEventListener('change', () => { const p = st.planes.find(x => x.id === planSel.value); if (p) { tot.value = precioEn(p, st.turnoId); sen.value = calcSena(p); } });
+  api('admin.planes').then(l => { st.planes = l.filter(p => p.activo); if (!st.planes.length) return; planSel.replaceChildren(h('option', { value: '' }, 'Elegí un plan…'), ...st.planes.map(p => h('option', { value: p.id }, p.nombre))); planBox.hidden = false; tot.placeholder = 'Lo define el plan'; }).catch(() => {});
+  fi.addEventListener('change', cargar); cargar(); sheet('Nueva reserva', f);
+}
+
+/* ───── RESERVAS (lista) ───── */
+async function vReservas(main) {
+  cargando(main);
+  let lista; try { lista = await api('admin.reservas', {}); } catch (e) { main.replaceChildren(h('p', { class: 'empty' }, e.message)); return; }
+  const f0 = hoy(), q = () => S.reQ.toLowerCase();
+  const filtros = { prox: ['Próximas', r => r.fecha >= f0 && (r.estado === 'confirmada' || r.estado === 'pendiente' || r.estado === 'saldada')], pend: ['Pendientes', r => r.estado === 'pendiente'], saldo: ['Con saldo', r => r.saldo > 0 && (r.estado === 'confirmada' || r.estado === 'pendiente')], pas: ['Pasadas', r => r.fecha < f0], canc: ['Canceladas', r => r.estado === 'cancelada' || r.estado === 'vencida'], todas: ['Todas', () => true] };
+  const lst = h('div', { class: 'list' });
+  const pintar = () => {
+    const f = filtros[S.reFiltro][1], filas = lista.filter(r => f(r) && (!q() || (r.nombre + r.telefono + r.email + r.id).toLowerCase().includes(q())));
+    if (S.reFiltro === 'pas' || S.reFiltro === 'canc' || S.reFiltro === 'todas') filas.reverse();
+    lst.replaceChildren(...(filas.length ? filas.map(r => h('button', { class: 'item', onclick: () => detalle(r.id) }, h('div', { class: 'when' }, fcorta(r.fecha).split(' ').slice(1).join(' '), h('small', null, DIAS[parse(r.fecha).getDay()] + ' ' + r.inicio)),
+      h('div', { class: 'main' }, h('b', null, r.nombre), h('span', { class: 'muted small' }, (S.salones.length > 1 ? salonDe(r.salonId) + ' · ' : '') + (r.personas ? r.personas + ' invitados' : '') + (r.origen === 'manual' ? ' · a mano' : ''))),
+      h('div', { style: 'text-align:right' }, h('span', { class: 'chip ' + r.estado }, r.estado), r.saldo > 0 && r.estado !== 'cancelada' && r.estado !== 'vencida' ? h('div', { class: 'small neg' }, 'Saldo ' + money(r.saldo)) : ''))) : [h('p', { class: 'empty' }, 'No hay reservas en esta vista.')]));
+  };
+  const seg = h('div', { class: 'seg' }, Object.entries(filtros).map(([k, [t]]) => h('button', { class: S.reFiltro === k ? 'on' : '', onclick: e => { S.reFiltro = k; seg.querySelectorAll('button').forEach(b => b.classList.remove('on')); e.target.classList.add('on'); pintar(); } }, t)));
+  main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Reservas')), h('input', { type: 'search', placeholder: 'Buscar por nombre, teléfono o código', value: S.reQ, style: 'margin-bottom:.7rem', oninput: e => { S.reQ = e.target.value; pintar(); } }), seg, lst, fab(() => nuevaReserva({}))); pintar();
+}
+
+/* ───── CAJA ───── */
+async function vCaja(main) {
+  cargando(main);
+  let c, res; try { [c, res] = await Promise.all([api('admin.caja', { mes: S.cajaMes }), api('admin.reservas', { desde: S.cajaMes + '-01', hasta: S.cajaMes + '-31' })]); } catch (e) { main.replaceChildren(h('p', { class: 'empty' }, e.message)); return; }
+  const nom = {}; (c.pagos || []).forEach(p => { nom[p.reservaId] = ''; });
+  let todas = []; try { todas = await api('admin.reservas', {}); } catch (e) {} todas.forEach(r => { nom[r.id] = r.nombre; });
+  const filas = [...c.pagos.map(p => ({ f: p.fecha, t: nom[p.reservaId] || 'Reserva', sub: 'Pago · ' + p.metodo + (p.nota ? ' · ' + p.nota : ''), m: p.monto, id: p.reservaId })), ...c.movimientos.map(x => ({ f: x.fecha, t: x.categoria || (x.tipo === 'ingreso' ? 'Ingreso' : 'Egreso'), sub: x.descripcion, m: x.tipo === 'ingreso' ? x.monto : -x.monto, mov: x.id }))].sort((a, b) => (a.f < b.f ? 1 : -1));
+  const st = (t, v, cls) => h('div', { class: 'card stat' }, h('b', { class: cls || '' }, money(v)), h('span', null, t));
+  main.replaceChildren(
+    h('div', { class: 'bar' }, h('div', { class: 'row' }, h('button', { class: 'icon', onclick: () => { S.cajaMes = sumMes(S.cajaMes, -1); vCaja(main); } }, '‹'), h('h2', null, nomMes(S.cajaMes)), h('button', { class: 'icon', onclick: () => { S.cajaMes = sumMes(S.cajaMes, 1); vCaja(main); } }, '›')),
+      h('div', { class: 'row' }, h('button', { class: 'btn soft sm', onclick: () => csv(filas) }, 'Exportar'), h('button', { class: 'btn sm', onclick: () => movimientoNuevo() }, '+ Movimiento'))),
+    h('div', { class: 'stats' }, st('Cobrado en reservas', c.ingresosReservas), st('Otros ingresos', c.ingresosExtra), st('Egresos', c.egresos, 'neg'), st('Balance del mes', c.balance, c.balance >= 0 ? 'pos' : 'neg'), st('Saldos por cobrar', c.porCobrar)),
+    Object.keys(c.porMetodo).length ? h('p', { class: 'muted small' }, 'Por medio: ' + Object.entries(c.porMetodo).map(([k, v]) => `${k} ${money(v)}`).join(' · ')) : '',
+    h('h3', { class: 'sec' }, 'Movimientos'), filas.length ? h('div', { class: 'list' }, filas.map(x => h('div', { class: 'item' + (x.id ? '' : ' static'), onclick: x.id ? () => detalle(x.id) : null }, h('div', { class: 'when' }, fcorta(x.f).split(' ').slice(1).join(' '), h('small', null, DIAS[parse(x.f).getDay()])), h('div', { class: 'main' }, h('b', null, x.t), h('span', { class: 'muted small' }, x.sub)), h('b', { class: x.m < 0 ? 'neg' : 'pos' }, money(x.m)),
+      x.mov ? h('button', { class: 'icon', 'aria-label': 'Eliminar', onclick: e => { e.stopPropagation(); if (!confirm('¿Eliminar este movimiento?')) return; accion(e.target, async () => { await api('admin.movimientoEliminar', { id: x.mov }); vCaja(main); }); } }, '🗑') : ''))) : h('p', { class: 'empty' }, 'Sin movimientos este mes.'));
+}
+function csv(filas) {
+  const q = s => '"' + String(s || '').replace(/"/g, '""') + '"', t = 'Fecha,Concepto,Detalle,Monto\n' + filas.map(x => [x.f, q(x.t), q(x.sub), x.m].join(',')).join('\n');
+  const a = h('a', { href: URL.createObjectURL(new Blob(['﻿' + t], { type: 'text/csv' })), download: `caja-${S.cajaMes}.csv` }); document.body.append(a); a.click(); a.remove();
+}
+function movimientoNuevo() {
+  const f = h('form', { onsubmit: ev => { ev.preventDefault(); const x = datos(f); accion($('button', f), async () => { await api('admin.movimiento', x); toast('Guardado', 'ok'); cerrar(); S.cajaMes = mesDe(x.fecha); render(); }); } },
+    h('div', { class: 'grid2' }, campo('Tipo', h('select', { name: 'tipo' }, h('option', { value: 'egreso' }, 'Egreso (gasto)'), h('option', { value: 'ingreso' }, 'Ingreso extra'))), campo('Monto', inp('monto', { type: 'number', required: true, min: '1' }))),
+    h('div', { class: 'grid2' }, campo('Fecha', inp('fecha', { type: 'date', value: hoy(), required: true })), campo('Categoría', inp('categoria', { placeholder: 'Limpieza, sueldos, venta…', list: 'cats' }))), h('datalist', { id: 'cats' }, ['Limpieza', 'Sueldos', 'Insumos', 'Mantenimiento', 'Publicidad', 'Impuestos', 'Alquiler', 'Servicios', 'Venta extra'].map(c => h('option', { value: c }))),
+    campo('Descripción', inp('descripcion')), h('button', { class: 'btn block' }, 'Guardar'));
+  sheet('Nuevo movimiento', f);
+}
+
+/* ───── TURNOS, SALONES Y BLOQUEOS ───── */
+/* Desplegables: cada sección se abre y se cierra; la pantalla recuerda cuáles quedaron abiertas al guardar. */
+const abiertos = {};
+function acc(id, titulo, resumen, ...hijos) {
+  const d = h('details', { class: 'acc', ...(abiertos[id] ? { open: true } : {}) }, h('summary', null, h('b', null, titulo), h('span', { class: 'muted small' }, resumen)), h('div', { class: 'acc-body' }, ...hijos));
+  d.addEventListener('toggle', () => { abiertos[id] = d.open; });
+  return d;
+}
+async function vTurnos(main) {
+  cargando(main); let bl, cfgPg, cont = []; let pl = []; try { await cargarBase(); [bl, pl, cfgPg, cont] = await Promise.all([api('admin.bloqueos'), api('admin.planes'), api('admin.config'), api('admin.contenido')]); } catch (e) { main.replaceChildren(h('p', { class: 'empty' }, e.message)); return; }
+  const sen = t => t.senaTipo === 'pct' ? t.senaValor + '% de seña' : t.senaTipo === 'monto' ? money(t.senaValor) + ' de seña' : 'Sin seña', dias = t => h('span', { class: 'small' }, [1, 2, 3, 4, 5, 6, 0].map(d => String(t.dias).split(',').includes(String(d)) ? DIAS_L[d] : '·').join(' '));
+  const bloques = S.salones.map(s => h('div', null, h('div', { class: 'bar', style: 'margin:1rem 0 .5rem' }, h('h3', null, s.nombre, s.activo ? '' : ' (inactivo)'), h('div', { class: 'row' }, h('button', { class: 'btn soft sm', onclick: () => salonForm(s) }, 'Editar salón'), h('button', { class: 'btn sm', onclick: () => turnoForm({ salonId: s.id }) }, '+ Turno'))),
+    h('div', { class: 'list' }, S.turnos.filter(t => t.salonId === s.id).map(t => h('button', { class: 'item', onclick: () => turnoForm(t) }, h('div', { class: 'when' }, t.inicio, h('small', null, 'a ' + t.fin)), h('div', { class: 'main' }, h('b', null, (t.etiqueta || 'Turno') + ' · ' + horas(t.inicio, t.fin)), h('span', { class: 'muted small' }, money(t.precio) + ' · ' + sen(t) + (t.desde || t.hasta ? ` · ${t.desde || ''}→${t.hasta || ''}` : ''))), dias(t), t.activo ? '' : h('span', { class: 'chip' }, 'pausado'))),
+      S.turnos.some(t => t.salonId === s.id) ? '' : h('p', { class: 'empty' }, 'Este salón todavía no tiene turnos.'))));
+  const fut = bl.filter(b => (b.hasta || b.desde) >= hoy()).sort((a, b) => (a.desde < b.desde ? -1 : 1));
+  const nGal = cont.filter(x => x.seccion === 'galeria').length;
+  main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Planes y turnos')),
+    acc('salones', 'Salones y turnos', S.salones.length + (S.salones.length === 1 ? ' salón · ' : ' salones · ') + S.turnos.length + (S.turnos.length === 1 ? ' turno' : ' turnos'), h('div', { class: 'row', style: 'margin-bottom:.4rem' }, h('button', { class: 'btn soft sm', onclick: () => salonForm({}) }, '+ Salón')), ...bloques),
+    acc('planes', 'Planes', pl.length + (pl.length === 1 ? ' plan' : ' planes'), h('div', { class: 'row', style: 'margin-bottom:.4rem' }, h('button', { class: 'btn sm', onclick: () => planForm({}) }, '+ Plan')),
+    h('p', { class: 'muted small', style: 'margin-bottom:.5rem' }, 'Opcional. Si cargás planes, quien reserva elige día y horario y después un plan: el precio y la seña salen del plan. Sin planes, rige el precio de cada turno.'),
+    pl.length ? h('div', { class: 'list' }, pl.map(p => h('button', { class: 'item', onclick: () => planForm(p) }, h('div', { class: 'main' }, h('b', null, p.nombre), h('span', { class: 'muted small' }, rangoPlan(p) + ' · ' + sen(p) + (p.descripcion ? ' · ' + p.descripcion : ''))), p.activo ? '' : h('span', { class: 'chip' }, 'pausado')))) : h('p', { class: 'empty' }, 'Todavía no hay planes. Las reservas usan el precio del turno.')),
+    acc('pagina', 'Página de planes', 'textos, fotos y preguntas', ...paginaPlanes(cfgPg, cont)),
+    acc('galeria', 'Página de galería', nGal ? nGal + (nGal === 1 ? ' foto' : ' fotos') : 'fotos de ejemplo', ...galeriaPanel(cont)),
+    acc('bloqueos', 'Días y turnos bloqueados', fut.length ? fut.length + (fut.length === 1 ? ' bloqueo' : ' bloqueos') : 'ninguno', h('div', { class: 'row', style: 'margin-bottom:.4rem' }, h('button', { class: 'btn sm', onclick: () => bloqueoNuevo() }, '+ Bloquear')),
+    fut.length ? h('div', { class: 'list' }, fut.map(b => h('div', { class: 'item static' }, h('div', { class: 'main' }, h('b', null, b.hasta && b.hasta !== b.desde ? `${fcorta(b.desde)} → ${fcorta(b.hasta)}` : flarga(b.desde)), h('span', { class: 'muted small' }, (b.salonId === '*' ? 'Todos los salones' : salonDe(b.salonId)) + (b.turnoId !== '*' ? ' · un turno' : ' · todo el día') + (b.motivo ? ' · ' + b.motivo : ''))),
+      h('button', { class: 'btn sm line', onclick: e => accion(e.target, async () => { await api('admin.desbloquear', { id: b.id }); refrescar(); }) }, 'Quitar')))) : h('p', { class: 'empty' }, 'No hay bloqueos cargados.')));
+}
+function planForm(p) {
+  const nuevo = !p.id;
+  const f = h('form', { onsubmit: ev => { ev.preventDefault(); const x = datos(f); accion($('button.btn.block', f), async () => { await api('admin.guardarPlan', { id: p.id, nombre: x.nombre, descripcion: x.descripcion, precio: x.precio, precios: Object.fromEntries(S.turnos.filter(t => String(x['pr_' + t.id] || '').trim() !== '').map(t => [t.id, x['pr_' + t.id]])), senaTipo: x.senaTipo, senaValor: x.senaValor, orden: x.orden, activo: x.activo, salonId: x.salonId || '', descTotal: x.descTotal || 0 }); toast('Plan guardado', 'ok'); cerrar(); refrescar(); }); } },
+    campo('Nombre del plan', inp('nombre', { required: true, placeholder: 'Combo Órbita', value: p.nombre || '' })), campo('Qué incluye (opcional)', h('textarea', { name: 'descripcion', rows: 3, placeholder: '4 horas, 3 animadores, mesa dulce…' }, p.descripcion || '')),
+    h('div', { class: 'grid2' }, campo('Precio $', inp('precio', { type: 'number', min: '0', required: true, value: p.precio ?? '' })), campo('Seña', h('select', { name: 'senaTipo', value: p.senaTipo || 'pct' }, h('option', { value: 'pct' }, 'Porcentaje %'), h('option', { value: 'monto' }, 'Monto fijo $'), h('option', { value: 'ninguna' }, 'Sin seña ($0)')))),
+    S.salones.length > 1 ? campo('Salón donde se ofrece', h('select', { name: 'salonId', value: p.salonId || '' }, h('option', { value: '' }, 'Todos los salones'), ...S.salones.map(z => h('option', { value: z.id }, z.nombre)))) : '',
+    S.turnos.length ? h('div', { class: 'pay', style: 'margin-bottom:1rem' }, h('span', { class: 'muted small', style: 'font-weight:600' }, 'Precio según el horario'), h('p', { class: 'muted small', style: 'margin:.2rem 0 .6rem' }, 'Si un horario cuesta distinto, ponelo acá. Si lo dejás vacío, vale el precio de arriba.'),
+      ...S.turnos.filter(t => t.activo).map(t => campo((t.etiqueta || 'Turno') + ' ' + t.inicio + ' a ' + t.fin + ' · ' + [1, 2, 3, 4, 5, 6, 0].filter(d => String(t.dias).split(',').includes(String(d))).map(d => DIAS_L[d]).join(' ') + (S.salones.length > 1 ? ' · ' + salonDe(t.salonId) : ''), inp('pr_' + t.id, { type: 'number', min: '0', placeholder: String(p.precio ?? ''), value: p.precios && p.precios[t.id] != null ? p.precios[t.id] : '' })))) : '',
+    h('div', { class: 'grid2' }, campo('Valor de la seña (30 = 30%)', inp('senaValor', { type: 'number', min: '0', value: p.senaValor ?? 30 })), campo('Orden', inp('orden', { type: 'number', value: p.orden || '' }))),
+    campo('Descuento si paga todo junto (% · vacío = sin descuento)', inp('descTotal', { type: 'number', min: '0', max: '90', value: p.descTotal || '' })),
+    h('label', { class: 'row', style: 'margin-bottom:1rem' }, inp('activo', { type: 'checkbox', checked: p.activo !== false }), 'Plan activo (se puede elegir)'), h('button', { class: 'btn block' }, 'Guardar plan'),
+    nuevo ? '' : h('button', { type: 'button', class: 'btn line block', style: 'margin-top:.6rem', onclick: e => { if (!confirm('¿Borrar este plan? Las reservas ya hechas no cambian.')) return; accion(e.target, async () => { await api('admin.borrarPlan', { id: p.id }); toast('Plan borrado', 'ok'); cerrar(); refrescar(); }); } }, 'Borrar plan'));
+  sheet(nuevo ? 'Nuevo plan' : 'Editar plan', f);
+}
+function salonForm(s) {
+  const f = h('form', { onsubmit: ev => { ev.preventDefault(); const x = datos(f); accion($('button', f), async () => { await api('admin.guardarSalon', { id: s.id, nombre: x.nombre, capacidad: x.capacidad, activo: x.activo, orden: x.orden }); toast('Guardado', 'ok'); cerrar(); refrescar(); }); } },
+    campo('Nombre del salón', inp('nombre', { required: true, value: s.nombre || '' })), h('div', { class: 'grid2' }, campo('Capacidad (opcional)', inp('capacidad', { type: 'number', value: s.capacidad || '' })), campo('Orden', inp('orden', { type: 'number', value: s.orden || '' }))),
+    h('label', { class: 'row', style: 'margin-bottom:1rem' }, inp('activo', { type: 'checkbox', checked: s.activo !== false }), 'Salón activo (se puede reservar)'), h('button', { class: 'btn block' }, 'Guardar'));
+  sheet(s.id ? 'Editar salón' : 'Nuevo salón', f);
+}
+function turnoForm(t) {
+  const nuevo = !t.id, ds = String(t.dias || '5,6,0').split(','), ini = inp('inicio', { type: 'time', required: true, value: t.inicio || '14:00' }), fin = inp('fin', { type: 'time', required: true, value: t.fin || '18:00' });
+  const dur = h('select', { 'aria-label': 'Duración' }, [['', 'Otra'], ['3', '3 horas'], ['3.5', '3 h 30'], ['4', '4 horas'], ['5', '5 horas']].map(([v, l]) => h('option', { value: v }, l)));
+  const calc = () => { if (!dur.value || !ini.value) return; const m = (+ini.value.slice(0, 2) * 60 + +ini.value.slice(3) + dur.value * 60) % 1440; fin.value = pad(Math.floor(m / 60)) + ':' + pad(m % 60); };
+  dur.addEventListener('change', calc); ini.addEventListener('change', calc);
+  const f = h('form', { onsubmit: ev => { ev.preventDefault(); const x = datos(f), dd = [1, 2, 3, 4, 5, 6, 0].filter(d => x['d' + d]).join(','); accion($('button.btn.block', f), async () => { await api('admin.guardarTurno', { id: t.id, salonId: x.salonId, dias: dd, inicio: x.inicio, fin: x.fin, etiqueta: x.etiqueta, precio: x.precio, senaTipo: x.senaTipo, senaValor: x.senaValor, desde: x.desde, hasta: x.hasta, activo: x.activo }); toast('Turno guardado', 'ok'); cerrar(); refrescar(); }); } },
+    S.salones.length > 1 ? campo('Salón', h('select', { name: 'salonId', value: t.salonId }, S.salones.map(s => h('option', { value: s.id }, s.nombre)))) : h('input', { type: 'hidden', name: 'salonId', value: t.salonId || S.salones[0].id }),
+    campo('Nombre del turno (opcional)', inp('etiqueta', { placeholder: 'Tarde, Noche, Mañana…', value: t.etiqueta || '' })),
+    h('span', { class: 'field' }, h('span', { style: 'display:block;font-size:.82rem;color:var(--mute);font-weight:600;margin-bottom:.25rem' }, 'Días'), h('div', { class: 'days' }, [1, 2, 3, 4, 5, 6, 0].map(d => h('label', null, inp('d' + d, { type: 'checkbox', checked: ds.includes(String(d)) }), DIAS[d])))),
+    h('div', { class: 'grid2' }, campo('Empieza', ini), campo('Duración', dur)), campo('Termina', fin),
+    h('div', { class: 'grid2' }, campo('Precio $', inp('precio', { type: 'number', min: '0', required: true, value: t.precio ?? '' })), campo('Seña', h('select', { name: 'senaTipo', value: t.senaTipo || 'pct' }, h('option', { value: 'pct' }, 'Porcentaje %'), h('option', { value: 'monto' }, 'Monto fijo $'), h('option', { value: 'ninguna' }, 'Sin seña ($0)')))),
+    campo('Valor de la seña (30 = 30% o el monto)', inp('senaValor', { type: 'number', min: '0', value: t.senaValor ?? 30 })),
+    h('div', { class: 'grid2' }, campo('Vale desde (opcional)', inp('desde', { type: 'date', value: t.desde || '' })), campo('Vale hasta (opcional)', inp('hasta', { type: 'date', value: t.hasta || '' }))),
+    h('label', { class: 'row', style: 'margin-bottom:1rem' }, inp('activo', { type: 'checkbox', checked: t.activo !== false }), 'Turno activo'), h('button', { class: 'btn block' }, 'Guardar turno'),
+    nuevo ? '' : h('button', { type: 'button', class: 'btn line block', style: 'margin-top:.6rem', onclick: e => { if (!confirm('¿Borrar este turno? Si tiene reservas futuras solo se pausa.')) return; accion(e.target, async () => { const r = await api('admin.borrarTurno', { id: t.id }); toast(r.desactivado ? 'Tenía reservas futuras: quedó pausado' : 'Turno borrado', 'ok'); cerrar(); refrescar(); }); } }, 'Borrar turno'));
+  sheet(nuevo ? 'Nuevo turno' : 'Editar turno', f);
+}
+function bloqueoNuevo(fecha) {
+  const f = h('form', { onsubmit: ev => { ev.preventDefault(); const x = datos(f); accion($('button', f), async () => { await api('admin.bloquear', { desde: x.desde, hasta: x.hasta || x.desde, salonId: x.salonId, turnoId: x.turnoId, motivo: x.motivo }); toast('Bloqueado', 'ok'); cerrar(); refrescar(); }); } },
+    h('div', { class: 'grid2' }, campo('Desde', inp('desde', { type: 'date', required: true, value: fecha || hoy() })), campo('Hasta (opcional)', inp('hasta', { type: 'date' }))),
+    S.salones.length > 1 ? campo('Salón', h('select', { name: 'salonId' }, h('option', { value: '*' }, 'Todos'), S.salones.map(s => h('option', { value: s.id }, s.nombre)))) : h('input', { type: 'hidden', name: 'salonId', value: '*' }),
+    campo('Turno', h('select', { name: 'turnoId' }, h('option', { value: '*' }, 'Todo el día'), S.turnos.map(t => h('option', { value: t.id }, `${t.etiqueta || 'Turno'} ${t.inicio}-${t.fin}` + (S.salones.length > 1 ? ' · ' + salonDe(t.salonId) : ''))))), campo('Motivo (opcional)', inp('motivo', { placeholder: 'Feriado, mantenimiento, evento privado…' })), h('button', { class: 'btn block' }, 'Bloquear'));
+  sheet('Bloquear', f);
+}
+
+/* ───── MI WEB (solo lectura: lo carga tuweeb en la hoja) ───── */
+const fanio = f => new Date(f + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
+async function vWeb(main) {
+  if (window.TEMA && TEMA.demoId && (window.DEMO_BACKEND || TEMA.cliente)) return vWebDemo(main);
+  cargando(main); let v; try { v = await api('admin.servicio'); } catch (e) { main.replaceChildren(h('p', { class: 'empty' }, e.message)); return; }
+  const est = { pagado: ['Pagado', 'confirmada'], 'en cuotas': ['En cuotas', 'pendiente'], pendiente: ['Pendiente de pago', 'pendiente'] }[v.estado] || [v.estado, ''];
+  const pct = v.precioTotal ? Math.min(100, Math.round(v.pagado / v.precioTotal * 100)) : 0;
+  const venc = v.vencimiento ? (v.diasParaVencer < 0 ? 'Venció el ' + fanio(v.vencimiento) : fanio(v.vencimiento) + (v.diasParaVencer <= 60 ? ` (faltan ${v.diasParaVencer} días)` : '')) : 'Se cuenta desde el primer pago';
+  main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Mi web'), h('span', { class: 'chip ' + est[1] }, est[0])),
+    h('p', { class: 'muted small', style: 'margin-bottom:.8rem' }, 'Acá ves cuánto es tu servicio, qué pagaste y cuándo toca el próximo pago. Es solo para consultar: si algo no coincide, escribile a tuweeb.'),
+    h('div', { class: 'money', style: '--n:3' }, h('div', null, h('b', null, money(v.precioTotal)), h('span', null, 'Total del año')), h('div', null, h('b', null, money(v.pagado)), h('span', null, 'Pagado')), h('div', null, h('b', { class: v.saldo > 0 ? 'neg' : 'pos' }, money(v.saldo)), h('span', null, 'Falta'))),
+    h('div', { class: 'progress' }, h('i', { style: 'width:' + pct + '%' })),
+    h('p', { class: 'muted small', style: 'margin:.6rem 0 0' }, `Se paga de contado (${money(v.precioTotal)}) o hasta en ${v.cuotas} cuotas de ${money(v.valorCuota)}.`),
+    v.proximaCuota ? h('div', { class: 'item static', style: 'margin-top:.8rem' }, h('div', { class: 'main' }, h('b', null, `Próximo pago: ${money(v.proximaCuota.monto)}`), h('span', { class: 'muted small' }, `Cuota ${v.proximaCuota.numero} de ${v.cuotas} · ya pagaste ${v.cuotasPagadas}`))) : '',
+    h('h3', { class: 'sec' }, 'Qué incluye'), h('ul', { class: 'small', style: 'padding-left:1.1rem;line-height:1.7' }, v.incluye.map(x => h('li', null, x))),
+    h('h3', { class: 'sec' }, 'Dominio y renovación'),
+    h('dl', { class: 'kv' }, h('dt', null, 'Dominio'), h('dd', null, v.dominio || 'Se registra al recibir el primer pago'), h('dt', null, 'Inicio'), h('dd', null, v.dominioInicio ? fanio(v.dominioInicio) : '—'), h('dt', null, 'Próximo pago anual'), h('dd', null, venc), h('dt', null, 'Renovación'), h('dd', null, `USD ${v.renovacionUsd} por año`)),
+    h('p', { class: 'muted small' }, `El año se cuenta desde que tuweeb compra el dominio, una vez que pagás la primera cuota o el total. La renovación (USD ${v.renovacionUsd} por año) incluye dominio, hosting, certificado SSL y soporte.`),
+    h('h3', { class: 'sec' }, 'Ediciones'), h('p', { class: 'small' }, `${v.edicionesRestantes} de ${v.edicionesIncluidas} ediciones simples disponibles este mes (se renuevan cada mes). El soporte no tiene costo. Las ediciones complejas se cotizan aparte.`),
+    h('h3', { class: 'sec' }, 'Pagos registrados'), v.pagos.length ? h('div', { class: 'list' }, v.pagos.map(p => h('div', { class: 'item static' }, h('div', { class: 'when' }, fcorta(p.fecha)), h('div', { class: 'main' }, h('b', null, money(p.monto)), p.nota ? h('span', { class: 'muted small' }, p.nota) : '')))) : h('p', { class: 'empty' }, 'Todavía no hay pagos registrados.'));
+}
+
+/* ───── MI WEB en demos: el cliente elige qué comprar, paga por transferencia y sube el comprobante ───── */
+const WA_TUWEEB = '5493435020970';
+async function fabrica(action, data, get) {
+  const base = window.TEMA && TEMA.fabrica; if (!base) throw new Error('No hay conexión con tuweeb. Probá más tarde.');
+  const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 60000);
+  try {
+    const r = get ? await fetch(base + '?' + new URLSearchParams({ action, ...(data || {}) }), { signal: ctl.signal })
+      : await fetch(base, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, ...(data || {}) }), signal: ctl.signal });
+    let j; try { j = await r.json(); } catch (e) { throw new Error('No hay conexión con tuweeb. Probá de nuevo.'); }
+    if (!j.ok) throw new Error(j.mensaje || 'No se pudo completar. Probá de nuevo.');
+    return j.data;
+  } catch (e) { throw e.name === 'AbortError' ? new Error('Tardó demasiado. Probá de nuevo.') : e; } finally { clearTimeout(tm); }
+}
+const PROD_INFO = {
+  logo: { t: 'Tu logo animado', d: 'Tu logo con volumen y una animación 3D a su alrededor, con tus combos y reservas online. Se entrega en 24 a 48 hs.', p: '$149.000' },
+  marca: { t: 'Tu marca en 3D', d: 'Tu logo en 3D, un personaje de tu marca y elementos de tu temática, en un recorrido animado que los chicos van a querer ver una y otra vez.', p: '$380.000' },
+  salon: { t: 'Tu salón en 3D', d: 'Recreamos tu salón en 3D, con tus juegos y espacios, o creamos un mundo a medida de tu marca. Los papás lo recorren desde el celu antes de reservar.', p: '$720.000' },
+  dominio: { t: 'Dominio con otra terminación', d: '', p: '$43.000 por año' }
+};
+const PLANES = ['logo', 'marca', 'salon'];
+const esCom = d => /\.com$/.test(d || '');
+const notasPlanes = () => h('div', { class: 'small muted', style: 'margin:.8rem 0' },
+  h('p', { style: 'margin:.2rem 0' }, 'Todos los planes incluyen dominio .com gratis el primer año. Otras terminaciones (.com.ar, .ar, etc.): $43.000 por año.'),
+  h('p', { style: 'margin:.2rem 0' }, 'Desde el segundo año, solo abonás USD 49 por año de mantenimiento (dominio y hosting).'));
+function estadoItem(it) {
+  if (it.estado === 'entregado') return it.falta > 0 ? ['Entregado · falta pagar ' + money(it.falta), 'pendiente'] : ['Entregado y pagado', 'confirmada'];
+  if (it.k === 'dominio') return it.confirmado >= it.total ? ['Pagado · lo estamos gestionando', 'confirmada'] : it.revision > 0 ? ['Revisando tu pago', 'pendiente'] : ['Esperando el pago', 'pendiente'];
+  if (it.confirmado >= it.sena) return ['En preparación', 'confirmada'];
+  if (it.revision > 0) return ['Revisando tu pago', 'pendiente'];
+  if (it.sena >= it.total) return it.confirmado > 0 ? ['Pagando en entregas · falta ' + money(it.falta), 'pendiente'] : ['Esperando el primer pago', 'pendiente'];
+  return it.confirmado > 0 ? ['Seña en pagos · falta ' + money(it.sena - it.confirmado), 'pendiente'] : ['Esperando la seña', 'pendiente'];
+}
+function bloqueDominio(est) {
+  const out = h('div', { class: 'dom-res' }), q = h('input', { type: 'text', placeholder: 'minegocio o minegocio.com.ar', autocapitalize: 'none', autocomplete: 'off', value: est.dominio || '' });
+  const btn = h('button', { class: 'btn soft', type: 'button' }, 'Buscar');
+  const buscar = () => accion(btn, async () => {
+    out.replaceChildren(h('p', { class: 'muted small' }, 'Buscando…'));
+    const r = await fabrica('dominio', { q: q.value }, true);
+    est.res = r; pintarRes();
+  });
+  const pintarRes = () => {
+    if (!est.res) return;
+    out.replaceChildren(...est.res.map(x => {
+      const libre = x.estado === 'libre', b = h('button', { type: 'button', class: 'btn sm ' + (est.dominio === x.dominio ? '' : 'line'), disabled: x.estado !== 'libre' }, est.dominio === x.dominio ? 'Elegido ✓' : 'Elegir');
+      b.addEventListener('click', () => { est.dominio = x.dominio; est.pintar(); });
+      return h('div', { class: 'item static' }, h('div', { class: 'main' }, h('b', null, x.dominio), h('span', { class: 'small', style: 'color:var(--' + (libre ? 'ok' : x.estado === 'ocupado' ? 'bad' : 'warn') + ')' }, libre ? 'Disponible' : x.estado === 'ocupado' ? 'Ocupado' : 'No pudimos verificarlo ahora')), libre ? b : null);
+    }));
+  };
+  pintarRes();
+  btn.addEventListener('click', buscar); q.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); buscar(); } });
+  return h('div', { class: 'card', style: 'margin-top:.6rem' }, h('b', { class: 'small' }, 'Buscá tu dominio'), h('div', { class: 'row', style: 'margin:.5rem 0' }, q, btn),
+    est.dominio ? h('p', { class: 'small', style: 'color:var(--ok);margin:.2rem 0 .5rem' }, 'Dominio elegido: ' + est.dominio) : null, out);
+}
+function pantallaElegir(main, ped) {
+  const est = { plan: ACTIVAR ? 'logo' : null, dominio: ped.dominio || '', pintar: null }, lista = h('div'), resumen = h('div'), dom = h('div');
+  const pintar = () => {
+    lista.replaceChildren(...PLANES.map(k => {
+      const on = est.plan === k, i = PROD_INFO[k];
+      return h('label', { class: 'card', style: 'display:flex;gap:.8rem;align-items:flex-start;margin-bottom:.6rem;cursor:pointer;' + (on ? 'box-shadow:0 0 0 2px var(--brand)' : '') },
+        h('input', { type: 'radio', name: 'plan', checked: on, style: 'margin-top:.25rem', onchange: () => { est.plan = k; pintar(); } }),
+        h('div', null, h('b', null, i.t + ' · ' + i.p), h('div', { class: 'small muted', style: 'margin-top:.2rem' }, i.d)));
+    }));
+    dom.replaceChildren(est.plan ? bloqueDominio(est) : '');
+    const extra = est.dominio && !esCom(est.dominio) ? ped.catalogo.dominio.total : 0;
+    if (!est.plan) return resumen.replaceChildren(h('p', { class: 'muted small' }, 'Elegí un plan para continuar.'));
+    const c = ped.catalogo[est.plan], tot = c.total + extra, ahora = c.sena + extra;
+    resumen.replaceChildren(h('div', { class: 'card' },
+      h('div', { class: 'row', style: 'justify-content:space-between' }, h('span', null, 'Total'), h('b', null, money(tot))),
+      extra ? h('div', { class: 'row small muted', style: 'justify-content:space-between' }, h('span', null, 'Incluye dominio ' + est.dominio), h('span', null, money(extra))) : null,
+      h('div', { class: 'row', style: 'justify-content:space-between' }, h('span', { class: 'muted' }, 'A transferir ahora'), h('b', null, money(ahora))),
+      h('div', { class: 'row small muted', style: 'justify-content:space-between' }, h('span', null, 'Después, contra entrega'), h('span', null, money(tot - ahora)))));
+  };
+  est.pintar = pintar; pintar();
+  const pedir = h('button', { class: 'btn block', type: 'button' }, 'Hacer el pedido');
+  pedir.addEventListener('click', () => { if (!est.plan) return toast('Elegí un plan', 'err'); accion(pedir, async () => { const r = await fabrica('pedidoGuardar', { id: TEMA.demoId, items: [est.plan], dominio: est.dominio }); toast('Pedido recibido', 'ok'); pantallaPedido(main, r); }); });
+  return [lista, dom, resumen, notasPlanes(), h('div', null, pedir)];
+}
+function bloqueTransfer(ped) {
+  const t = ped.transferencia, filas = [['Alias', t.alias], ['Titular', t.titular], ['CBU / CVU', t.cbu], ['Banco', t.banco]].filter(f => f[1]);
+  if (!filas.length) return h('p', { class: 'small muted' }, 'Los datos para transferir te los pasamos por WhatsApp.');
+  return h('dl', { class: 'kv' }, filas.map(f => [h('dt', null, f[0]), h('dd', null, h('span', null, f[1]), ' ', h('button', { class: 'btn sm line', type: 'button', onclick: () => { try { navigator.clipboard.writeText(f[1]); toast('Copiado', 'ok'); } catch (e) {} } }, 'Copiar'))]));
+}
+function bloquePago(main, ped, its) {
+  its = [].concat(its);
+  const t = ped.transferencia, total = its.reduce((a, i) => a + (i.sugerido || 0), 0), monto = h('input', { type: 'number', inputmode: 'numeric', min: '1', value: total || '', placeholder: 'Monto' }), file = h('input', { type: 'file', accept: 'image/*,application/pdf', multiple: true, style: 'display:none' });
+  // un solo pago se reparte entre las opciones: cada una recibe lo que le corresponde (lo que sobre va a la primera)
+  const reparto = () => { let resto = Number(monto.value) || 0; const out = its.map(i => { const m = Math.min(resto, i.sugerido || 0); resto -= m; return { it: i, m }; }).filter(x => x.m > 0); if (resto > 0) { if (out.length) out[0].m += resto; else out.push({ it: its[0], m: resto }); } return out; };
+  const mandar = async extra => { let r; const rep = reparto(); for (let n = 0; n < rep.length; n++) r = await fabrica('pedidoComprobante', { id: TEMA.demoId, k: rep[n].it.k, monto: rep[n].m, ...(n === 0 ? extra : { sinArchivo: true }) }); toast('Aviso enviado. Confirmamos tu pago y se actualiza acá.', 'ok'); pantallaPedido(main, r); };
+  const ya = h('button', { class: 'btn block', type: 'button' }, 'Ya pagué'), adj = h('button', { class: 'btn soft block', type: 'button', style: 'margin-top:.4rem' }, 'Ya pagué · adjuntar comprobante(s)');
+  const val = () => Number(monto.value) > 0 || (toast('Escribí el monto que pagaste', 'err'), false);
+  ya.addEventListener('click', () => { if (val()) accion(ya, () => mandar({ sinArchivo: true })); });
+  adj.addEventListener('click', () => { if (val()) file.click(); });
+  file.addEventListener('change', () => { const fs = [...(file.files || [])].slice(0, 5); if (!fs.length) return; accion(adj, async () => { const as = []; for (const f of fs) as.push(await leerArchivo(f)); file.value = ''; await mandar({ ...as[0], extra: as.slice(1) }); }); });
+  const filas = [['Alias', t.alias], ['Titular', t.titular], ['CBU / CVU', t.cbu], ['Banco', t.banco]].filter(f => f[1]);
+  const transf = filas.length ? h('details', { style: 'margin:.6rem 0' }, h('summary', { class: 'small muted', style: 'cursor:pointer' }, 'Prefiero pagar por transferencia'), h('dl', { class: 'kv' }, filas.map(f => [h('dt', null, f[0]), h('dd', null, h('span', null, f[1]), ' ', h('button', { class: 'btn sm line', type: 'button', onclick: () => { try { navigator.clipboard.writeText(f[1]); toast('Copiado', 'ok'); } catch (e) {} } }, 'Copiar'))]))) : null;
+  return h('div', { class: its.length > 1 ? 'card' : null, style: 'margin-top:.6rem' },
+    its.length > 1 ? h('b', null, 'Pagá todo junto') : null,
+    its.length > 1 ? h('div', { class: 'small muted', style: 'margin:.2rem 0' }, its.filter(i => i.sugerido).map(i => PROD_INFO[i.k].t + ': ' + money(i.sugerido)).join(' · ')) : null,
+    total ? h('p', { style: 'margin:.2rem 0;font-size:1.05rem' }, 'A pagar ahora: ', h('b', null, money(total))) : h('p', { class: 'small', style: 'margin:.2rem 0' }, 'Si ya pagaste, avisanos.'),
+    t.mp ? h('div', null, h('a', { class: 'btn block', href: t.mp, target: '_blank', rel: 'noopener', style: 'text-align:center', onclick: () => { try { navigator.clipboard.writeText(String(total)); toast('Monto copiado: pegalo en Mercado Pago', 'ok'); } catch (e) {} } }, 'Pagar con Mercado Pago'),
+      h('p', { class: 'small muted', style: 'margin:.4rem 0' }, total ? `En la pantalla de Mercado Pago escribí ${money(total)} y pagá a "tuweeb". Después volvé acá y tocá "Ya pagué".` : 'Pagá a "tuweeb" y volvé acá a avisarnos.')) : null,
+    transf, h('div', { class: 'row', style: 'margin:.5rem 0' }, h('span', { class: 'small muted', style: 'white-space:nowrap' }, 'Monto pagado'), monto), ya, adj, file);
+}
+function dominioTarde(main, ped) {
+  const est = { dominio: '', pintar: null }, g = h('button', { class: 'btn block', type: 'button', style: 'margin-top:.5rem' }, 'Guardar mi dominio');
+  const box = h('div'); const pint = () => { box.replaceChildren(bloqueDominio(est), est.dominio ? g : ''); }; est.pintar = pint; pint();
+  g.addEventListener('click', () => accion(g, async () => { const r = await fabrica('pedidoGuardar', { id: TEMA.demoId, dominio: est.dominio }); toast('Dominio guardado', 'ok'); pantallaPedido(main, r); }));
+  return box;
+}
+async function verComprobante(btn, p, n) {
+  const t = btn.textContent; btn.disabled = true; btn.textContent = 'Abriendo…';
+  try {
+    const d = await fabrica('pedidoVerComprobante', { id: TEMA.demoId, pagoId: p.id, n });
+    const cerrar = h('button', { class: 'btn', type: 'button', style: 'margin:.6rem' }, 'Cerrar'), cont = h('div', { style: 'flex:1;overflow:auto;display:flex;justify-content:center;align-items:flex-start;padding:.6rem' });
+    const ov = h('div', { style: 'position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.88);display:flex;flex-direction:column' }, cerrar, cont); cerrar.addEventListener('click', () => ov.remove());
+    if (d.tipo === 'application/pdf') { const u = URL.createObjectURL(new Blob([Uint8Array.from(atob(d.datos), c => c.charCodeAt(0))], { type: 'application/pdf' })); cont.append(h('iframe', { src: u, style: 'width:100%;height:100%;min-height:70vh;border:0;background:#fff' })); }
+    else cont.append(h('img', { src: 'data:' + d.tipo + ';base64,' + d.datos, alt: 'Comprobante', style: 'max-width:100%;height:auto' }));
+    document.body.append(ov);
+  } catch (e) { toast(e.message, 'err'); } finally { btn.disabled = false; btn.textContent = t; }
+}
+function pantallaPedido(main, ped) {
+  const pagables = ped.items.filter(i => i.falta > 0 && i.sugerido > 0);
+  const items = ped.items.map(it => {
+    const e = estadoItem(it), pct = it.total ? Math.min(100, Math.round(it.confirmado / it.total * 100)) : 0, pend = it.falta > 0;
+    return h('div', { class: 'card', style: 'margin-bottom:.7rem' },
+      h('div', { class: 'bar' }, h('b', null, PROD_INFO[it.k].t), h('span', { class: 'chip ' + e[1] }, e[0])),
+      h('div', { class: 'progress' }, h('i', { style: 'width:' + pct + '%' })),
+      h('p', { class: 'small muted', style: 'margin:.4rem 0' }, `Pagaste ${money(it.confirmado)} de ${money(it.total)}` + (it.revision ? ` · en revisión ${money(it.revision)}` : '') + (it.modo === 'sena' && it.estado !== 'entregado' && it.confirmado < it.sena ? (it.sena >= it.total ? (it.cuota ? ` · entregas de ${money(it.cuota)}` : '') : ` · para arrancar: seña de ${money(it.sena)}` + (it.cuota ? ` en pagos de ${money(it.cuota)}` : '')) : '')),
+      (it.k === 'dominio') && ped.dominio ? h('p', { class: 'small', style: 'margin:.2rem 0' }, 'Tu dominio: ', h('b', null, ped.dominio)) : null,
+      it.estado === 'entregado' && it.url ? h('a', { class: 'btn sm', href: it.url, target: '_blank', rel: 'noopener', style: 'margin:.3rem 0;display:inline-block' }, 'Abrir') : null,
+      it.nota ? h('p', { class: 'small muted' }, it.nota) : null,
+      pend && (!pagables.length || (pagables.length === 1 && pagables[0].k === it.k)) ? bloquePago(main, ped, it) : null);
+  });
+  const pagos = ped.pagos.length ? [h('h3', { class: 'sec' }, 'Tus pagos'), h('div', { class: 'list' }, ped.pagos.slice().reverse().map(p => {
+    const ch = { confirmado: ['Confirmado', 'confirmada'], revision: ['En revisión', 'pendiente'], rechazado: ['Rechazado', 'cancelada'] }[p.estado] || [p.estado, ''];
+    const ver = Array.from({ length: p.archivos || 0 }, (_, i) => h('button', { class: 'btn sm line', type: 'button', onclick: ev => verComprobante(ev.currentTarget, p, i) }, p.archivos > 1 ? 'Ver comprobante ' + (i + 1) : 'Ver comprobante'));
+    return h('div', { class: 'item static', style: 'flex-wrap:wrap' }, h('div', { class: 'main' }, h('b', null, money(p.monto)), h('span', { class: 'muted small' }, PROD_INFO[p.k] ? PROD_INFO[p.k].t : p.k), p.nota && p.nota !== 'Cargado por tuweeb' ? h('span', { class: 'small' }, p.nota) : null, ver.length ? h('div', { style: 'display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.4rem' }, ver) : null), h('span', { class: 'chip ' + ch[1] }, ch[0]));
+  }))] : [];
+  main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Mi web')), avisoPersonalizada(ped),
+    h('p', { class: 'muted small', style: 'margin-bottom:.8rem' }, 'Acá ves lo que pediste y en qué está cada cosa. Se actualiza cuando confirmamos tus pagos.'),
+    ...items, ...(pagables.length > 1 ? [bloquePago(main, ped, pagables)] : []),
+    ...((ped.venc || []).filter(v => !v.hecho).length ? [h('h3', { class: 'sec' }, 'Próximos pagos'), h('div', { class: 'list' }, ped.venc.filter(v => !v.hecho).sort((a, b) => a.fecha < b.fecha ? -1 : 1).map(v => { const d = Math.round((new Date(v.fecha + 'T12:00:00') - Date.now()) / 864e5); return h('div', { class: 'item static' }, h('div', { class: 'main' }, h('b', null, v.concepto), h('span', { class: 'muted small' }, new Date(v.fecha + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }) + (v.monto ? ' · ' + money(v.monto) : ''))), h('span', { class: 'chip ' + (d < 0 ? 'cancelada' : d <= 10 ? 'pendiente' : '') }, d < 0 ? 'Vencido' : d === 0 ? 'Vence hoy' : d <= 10 ? 'En ' + d + (d === 1 ? ' día' : ' días') : 'Programado')); }))] : []),
+    ...pagos,
+    ...(ped.dominio ? [h('p', { class: 'small', style: 'margin:.6rem 0' }, 'Tu dominio: ', h('b', null, ped.dominio))] : [dominioTarde(main, ped)]),
+    notasPlanes(),
+    h('a', { class: 'btn line block', style: 'margin-top:1rem;text-align:center', target: '_blank', rel: 'noopener', href: 'https://wa.me/' + WA_TUWEEB + '?text=' + encodeURIComponent('Hola! Tengo una consulta sobre mi demo (' + (TEMA.nombre || '') + ')') }, 'Escribirnos por WhatsApp'));
+}
+/* Aviso en Mi web cuando el sitio fue personalizado a medida (se publica desde el editor): los cambios futuros se hacen con tuweeb */
+const avisoPersonalizada = ped => ped && ped.personalizada ? h('div', { class: 'card', style: 'margin:.6rem 0' }, h('b', null, 'Tu web es personalizada'), h('p', { class: 'small muted', style: 'margin:.3rem 0 0' }, 'Es una web hecha a tu medida. Para cambiarle algo (el 3D, textos, fotos), escribinos y lo hacemos nosotros: así no se rompe nada.')) : '';
+async function vWebDemo(main) {
+  cargando(main); let ped; try { ped = await fabrica('pedido', { id: TEMA.demoId }, true); } catch (e) { main.replaceChildren(h('p', { class: 'empty' }, e.message), h('button', { class: 'btn soft', onclick: () => vWebDemo(main) }, 'Reintentar')); return; }
+  if (ped.items.length) return pantallaPedido(main, ped);
+  if (TEMA.cliente) return main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Mi web'), h('span', { class: 'chip confirmada' }, 'Activa')),
+    h('p', { class: 'muted small', style: 'margin:.4rem 0 .8rem' }, 'Tu sitio está publicado y funcionando. Acá van a aparecer tus pagos y vencimientos.'), avisoPersonalizada(ped),
+    h('a', { class: 'btn line block', style: 'margin-top:1rem;text-align:center', target: '_blank', rel: 'noopener', href: 'https://wa.me/' + WA_TUWEEB + '?text=' + encodeURIComponent('Hola! Tengo una consulta sobre mi web.') }, 'Escribir a tuweeb'));
+  main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Mi web')),
+    h('p', { class: 'muted small', style: 'margin-bottom:.8rem' }, 'Elegí tu plan. Pagás por transferencia, subís el comprobante acá y seguís todo el proceso desde esta pantalla.'),
+    ...pantallaElegir(main, ped),
+    h('a', { class: 'btn line block', style: 'margin-top:1rem;text-align:center', target: '_blank', rel: 'noopener', href: 'https://wa.me/' + WA_TUWEEB + '?text=' + encodeURIComponent('Hola! Tengo una consulta sobre mi demo (' + (TEMA.nombre || '') + ')') }, 'Escribirnos por WhatsApp'));
+}
+
+/* ───── HORA DE JUEGO ───── */
+const sumDias = (f, n) => { const d = parse(f); d.setDate(d.getDate() + n); return ymd(d); };
+const cuandoJ = r => new Date(r).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+function juegoChip(s) {
+  if (s.estado === 'abierto') return h('span', { class: 'chip ' + (s.completo ? 'cancelada' : 'confirmada') }, s.completo ? 'Completo' : `${s.anotados}/${s.cupo}`);
+  if (s.estado === 'cumple') return h('span', { class: 'chip pendiente' }, 'Cumple');
+  return h('span', { class: 'chip' }, { cerrado: 'Cerrado', bloqueado: 'Bloqueado', fuera: 'Sin abrir' }[s.estado] || s.estado);
+}
+async function vJuego(main) {
+  cargando(main); S.juegoDesde = S.juegoDesde || hoy();
+  let d; try { d = await api('admin.juego', { desde: S.juegoDesde, hasta: sumDias(S.juegoDesde, 6) }); } catch (e) { main.replaceChildren(h('p', { class: 'empty' }, e.message)); return; }
+  const dias = {}; d.slots.forEach(s => (dias[s.fecha] = dias[s.fecha] || []).push(s));
+  const vivas = d.reservas.filter(r => r.estado === 'pendiente' || r.estado === 'confirmada'), esperando = vivas.filter(r => r.estado === 'pendiente').length;
+  const refrescarJ = () => vJuego($('#vista'));
+  main.replaceChildren(
+    h('div', { class: 'bar' }, h('div', { class: 'row' }, h('button', { class: 'icon', 'aria-label': 'Semana anterior', onclick: () => { S.juegoDesde = sumDias(S.juegoDesde, -7); vJuego(main); } }, '‹'), h('h2', null, 'Hora de juego'),
+      h('button', { class: 'icon', 'aria-label': 'Semana siguiente', onclick: () => { S.juegoDesde = sumDias(S.juegoDesde, 7); vJuego(main); } }, '›')), h('button', { class: 'btn sm', onclick: () => juegoNueva(null) }, '+ Anotar')),
+    h('p', { class: 'muted small', style: 'margin-bottom:.6rem' }, `Del ${fcorta(d.desde)} al ${fcorta(d.hasta)}. Cerca de la fecha, los horarios sin cumple se abren solos. Tocá un horario para abrirlo, cerrarlo o cambiar el cupo.`),
+    esperando ? h('p', { class: 'small', style: 'color:var(--warn);margin:.2rem 0 .6rem' }, esperando === 1 ? 'Hay 1 reserva esperando que confirmes el pago.' : `Hay ${esperando} reservas esperando que confirmes el pago.`) : '',
+    ...(Object.keys(dias).length ? Object.keys(dias).sort().map(f => [h('h3', { class: 'sec' }, flarga(f)), h('div', { class: 'list' }, dias[f].map(s => h('button', { class: 'item', onclick: () => juegoSlotHoja(s, d.reservas) },
+      h('div', { class: 'when' }, s.inicio), h('div', { class: 'main' }, h('b', null, `${s.inicio} a ${s.fin}`), h('span', { class: 'muted small' }, (S.salones.length > 1 ? s.salon + ' · ' : '') + (s.estado === 'cumple' ? 'Cumple de ' + s.cumple : s.estado === 'abierto' ? (s.origen === 'manual' ? 'Abierto por vos' : 'Abierto automático') + ' · ' + money(s.precio) + ' por chico' : ''))), juegoChip(s))))]).flat() : [h('p', { class: 'empty' }, 'No hay horarios en estas fechas.')]),
+    h('h3', { class: 'sec' }, 'Anotados'),
+    vivas.length ? h('div', { class: 'list' }, vivas.map(r => h('button', { class: 'item', onclick: () => juegoDetalle(r.id) }, h('div', { class: 'when' }, fcorta(r.fecha)), h('div', { class: 'main' }, h('b', null, r.nombre), h('span', { class: 'muted small' }, `${r.chicos} ${r.chicos === 1 ? 'chico' : 'chicos'} · ${r.inicio} · ${r.salon}` + (r.compFecha && r.compNombre && r.estado === 'pendiente' ? ' · con comprobante' : ''))), h('span', { class: 'chip ' + r.estado }, r.estado === 'pendiente' ? 'Falta pago' : 'Pagado')))) : h('p', { class: 'muted small' }, 'Todavía no hay chicos anotados en estas fechas.'));
+  vJuego.refrescar = refrescarJ;
+}
+function juegoSlotHoja(s, reservas) {
+  const mias = reservas.filter(r => r.fecha === s.fecha && r.turnoId === s.turnoId && (r.estado === 'pendiente' || r.estado === 'confirmada'));
+  const f = h('form', { onsubmit: ev => ev.preventDefault() },
+    h('div', { class: 'grid2' }, campo('Cupo (chicos)', inp('cupo', { type: 'number', min: '1', value: s.cupo })), campo('Precio por chico', inp('precio', { type: 'number', min: '0', value: s.precio }))),
+    campo('Aviso para las familias (opcional)', inp('nota', { value: s.nota || '', maxlength: '200', placeholder: 'Ej: Tarde de pintura' })),
+    campo('Flyer de este horario (opcional)', inp('flyer', { value: s.flyer || '', placeholder: 'Se usa el flyer fijo si lo dejás vacío' })));
+  const fi = h('input', { type: 'file', accept: 'image/*', style: 'display:none' });
+  fi.addEventListener('change', () => { const a = fi.files && fi.files[0]; if (!a) return; accion($('.subirf', f), async () => { const x = await leerArchivo(a); const r = await api('admin.subirFoto', x); f.elements.flyer.value = r.url; toast('Flyer cargado. Tocá Guardar.', 'ok'); }); });
+  const guardar = estado => e => accion(e.currentTarget, async () => { const x = datos(f); await api('admin.juegoSlot', { fecha: s.fecha, turnoId: s.turnoId, estado, cupo: x.cupo, precio: x.precio, nota: x.nota, flyer: x.flyer }); toast(estado === 'abierto' ? 'Horario abierto' : estado === 'cerrado' ? 'Horario cerrado' : 'Vuelve a ser automático', 'ok'); cerrar(); vJuego.refrescar(); });
+  const hay = s.estado === 'cumple';
+  sheet(`${fcorta(s.fecha)} · ${s.inicio} a ${s.fin}`, h('div', null,
+    h('p', { class: 'muted small' }, (S.salones.length > 1 ? s.salon + '. ' : '') + (hay ? 'Hay un cumple reservado (' + s.cumple + '): este horario no se puede abrir para hora de juego.' : s.estado === 'abierto' ? (s.origen === 'manual' ? 'Lo abriste vos.' : 'Se abrió solo por estar cerca de la fecha.') : s.estado === 'cerrado' ? 'Lo cerraste vos: no se ofrece.' : s.estado === 'bloqueado' ? 'Está bloqueado.' : 'Todavía no se ofrece (queda lejos de la fecha).')),
+    hay ? '' : [f, fi, h('div', { class: 'row', style: 'flex-wrap:wrap;margin:.4rem 0' },
+      h('button', { class: 'btn', onclick: guardar('abierto') }, s.estado === 'abierto' ? 'Guardar cambios' : 'Abrir hora de juego'),
+      s.estado === 'abierto' ? h('button', { class: 'btn bad', onclick: e => { if (!confirm('¿Cerrar este horario? No se va a ofrecer, aunque esté cerca de la fecha.')) return; guardar('cerrado')(e); } }, 'Cerrar') : '',
+      h('button', { class: 'btn soft subirf', onclick: () => fi.click() }, 'Subir flyer'),
+      s.overrideId ? h('button', { class: 'btn line', onclick: guardar('auto') }, 'Volver a automático') : '')],
+    h('h3', { class: 'sec' }, 'Anotados en este horario'),
+    mias.length ? h('div', { class: 'list' }, mias.map(r => h('button', { class: 'item', onclick: () => juegoDetalle(r.id) }, h('div', { class: 'main' }, h('b', null, r.nombre), h('span', { class: 'muted small' }, `${r.chicos} ${r.chicos === 1 ? 'chico' : 'chicos'}`)), h('span', { class: 'chip ' + r.estado }, r.estado === 'pendiente' ? 'Falta pago' : 'Pagado')))) : h('p', { class: 'muted small' }, 'Nadie todavía.'),
+    hay ? '' : h('button', { class: 'btn soft block', style: 'margin-top:.8rem', onclick: () => juegoNueva(s) }, 'Anotar chicos en este horario')));
+}
+function juegoNueva(s) {
+  const opciones = (S.turnos || []).filter(t => t.activo);
+  const f = h('form', { onsubmit: ev => ev.preventDefault() },
+    h('div', { class: 'grid2' }, campo('Fecha', inp('fecha', { type: 'date', value: s ? s.fecha : hoy(), required: true })),
+      campo('Horario', h('select', { name: 'turnoId' }, opciones.map(t => h('option', { value: t.id, selected: s && s.turnoId === t.id }, (S.salones.length > 1 ? salonDe(t.salonId) + ' · ' : '') + `${t.inicio} a ${t.fin}`))))),
+    h('div', { class: 'grid2' }, campo('Nombre del adulto', inp('nombre', { required: true })), campo('WhatsApp', inp('telefono', { type: 'tel', inputmode: 'tel' }))),
+    h('div', { class: 'grid2' }, campo('Cantidad de chicos', inp('chicos', { type: 'number', min: '1', value: '1', required: true })), campo('Ya pagó ($)', inp('pagado', { type: 'number', min: '0', value: '0' }))),
+    campo('Cómo llegó', h('select', { name: 'origen' }, [['whatsapp', 'Por WhatsApp'], ['local', 'En el local'], ['panel', 'Otro']].map(([v, t]) => h('option', { value: v }, t)))),
+    campo('Comprobante (foto o PDF, opcional)', h('input', { type: 'file', name: 'comp', accept: 'image/*,application/pdf' })),
+    h('button', { class: 'btn block' }, 'Anotar'), h('p', { class: 'muted small' }, 'Si ya pagó, queda confirmado y el pago entra a la caja. La imagen del comprobante se borra sola a los 7 días; el dato queda.'));
+  const enviar = async forzar => { const x = datos(f), fl = f.elements.comp.files && f.elements.comp.files[0], a = fl ? await leerArchivo(fl) : {};
+    delete x.comp; try { await api('admin.juegoCrear', { ...x, ...(a.datos ? { compNombre: a.nombre, tipo: a.tipo, datos: a.datos } : {}), forzar: forzar || undefined }); toast('Anotado', 'ok'); cerrar(); vJuego.refrescar && vJuego.refrescar(); }
+    catch (e) { if (e.codigo === 'CUPO' && !forzar && confirm(e.message + '\n¿Anotar igual?')) return enviar(true); throw e; } };
+  f.addEventListener('submit', () => accion($('button.btn', f), () => enviar(false)));
+  sheet('Anotar chicos', f);
+}
+async function juegoDetalle(id) {
+  sheet('Hora de juego', h('p', { class: 'empty' }, h('img', { class: 'tw3d', src: 'tuweeb-icono.svg', alt: 'tuweeb' })));
+  let d; try { d = await api('admin.juegoReserva', { id }); } catch (e) { cerrar(); toast(e.message, 'err'); return; }
+  const r = d.reserva, c = d.comprobante, tel = r.telefono.replace(/\D/g, ''), wa = tel ? 'https://wa.me/' + (tel.length <= 10 ? '54' + tel : tel) + '?text=' + encodeURIComponent(`Hola ${r.nombre.split(' ')[0]}! Te escribimos de ${S.pub.nombre} por la hora de juego del ${flarga(r.fecha)} a las ${r.inicio}.`) : '';
+  const hecho = () => { vJuego.refrescar && vJuego.refrescar(); juegoDetalle(id); };
+  const fi = h('input', { type: 'file', accept: 'image/*,application/pdf', style: 'display:none' });
+  fi.addEventListener('change', () => { const a = fi.files && fi.files[0]; if (!a) return; accion($('.subir', fi.parentNode), async () => { const x = await leerArchivo(a); await api('admin.juegoComprobante', { id, ...x }); toast('Comprobante guardado', 'ok'); hecho(); }); });
+  const pf = h('form', { onsubmit: ev => { ev.preventDefault(); const x = datos(pf); accion($('button', pf), async () => { await api('admin.juegoPago', { id, monto: x.monto, metodo: x.metodo }); toast('Pago confirmado y cargado en la caja', 'ok'); hecho(); }); } },
+    h('div', { class: 'grid2' }, campo('Monto recibido', inp('monto', { type: 'number', min: '0', required: true, value: r.pagado > 0 ? r.pagado : r.total })), campo('Medio', h('select', { name: 'metodo' }, ['transferencia', 'efectivo', 'mercadopago', 'otro'].map(m => h('option', { value: m }, m === 'mercadopago' ? 'Mercado Pago' : m[0].toUpperCase() + m.slice(1)))))),
+    h('button', { class: 'btn block' }, r.pagado > 0 ? 'Corregir pago' : 'Confirmar pago'));
+  sheet('Hora de juego', h('div', null,
+    h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', null, r.nombre), h('span', { class: 'chip ' + r.estado }, r.estado === 'pendiente' ? 'Falta pago' : r.estado)),
+    h('dl', { class: 'kv' }, h('dt', null, 'Fecha'), h('dd', null, flarga(r.fecha)), h('dt', null, 'Horario'), h('dd', null, `${r.inicio} a ${r.fin}` + (S.salones.length > 1 ? ' · ' + d.salon : '')), h('dt', null, 'Chicos'), h('dd', null, r.chicos),
+      h('dt', null, 'Contacto'), h('dd', null, r.telefono ? h('a', { href: 'tel:' + r.telefono }, r.telefono) : '—'), h('dt', null, 'Cómo llegó'), h('dd', null, { web: 'Web', whatsapp: 'WhatsApp', local: 'En el local', panel: 'Panel' }[r.origen] || r.origen),
+      r.estado === 'pendiente' && r.venceEn ? [h('dt', null, 'Se libera'), h('dd', null, cuandoJ(r.venceEn))] : '', r.nota ? [h('dt', null, 'Nota'), h('dd', null, r.nota)] : ''),
+    h('div', { class: 'money' }, h('div', null, h('b', null, money(r.total)), h('span', null, 'Total')), h('div', null, h('b', null, money(r.pagado)), h('span', null, 'Pagado'))),
+    h('h3', { class: 'sec' }, 'Comprobante'),
+    c && !c.borrado ? h('a', { class: 'comp', href: c.url, target: '_blank', rel: 'noopener' }, h('span', { class: 'pdf' }, c.tipo === 'pdf' ? 'PDF' : 'FOTO'), h('span', { class: 'main' }, h('b', null, c.nombre), h('span', { class: 'muted small' }, (c.origen === 'cliente' ? 'Lo subió el cliente' : 'Lo cargaste vos') + ' · ' + cuandoJ(c.fecha)), h('span', { class: 'small' }, 'Tocá para abrirlo. Se borra solo el ' + cuandoJ(c.borraEn).split(',')[0] + '.'))) :
+      h('p', { class: 'muted small' }, c ? 'La imagen se borró. El pago quedó anotado en la caja.' : 'Todavía no hay comprobante. Lo puede subir la familia al reservar, o lo cargás vos si te lo mandan por WhatsApp.'),
+    h('div', { class: 'row', style: 'margin-top:.6rem' }, h('button', { class: 'btn soft subir', onclick: () => fi.click() }, c && !c.borrado ? 'Reemplazar' : 'Subir comprobante'), fi),
+    r.estado !== 'cancelada' && r.estado !== 'vencida' ? [h('h3', { class: 'sec' }, 'Pago'), pf] : '',
+    h('h3', { class: 'sec' }, 'Acciones'),
+    h('div', { class: 'row', style: 'flex-wrap:wrap' }, wa ? h('a', { class: 'btn soft', href: wa, target: '_blank', rel: 'noopener' }, 'Escribirle por WhatsApp') : '',
+      r.estado !== 'cancelada' && r.estado !== 'vencida' ? h('button', { class: 'btn bad', onclick: e => { if (!confirm('¿Cancelar esta reserva? Los lugares quedan libres.')) return; accion(e.target, async () => { await api('admin.juegoCancelar', { id }); toast('Reserva cancelada', 'ok'); cerrar(); vJuego.refrescar && vJuego.refrescar(); }); } }, 'Cancelar reserva') : '')));
+}
+
+/* ───── AJUSTES ───── */
+/* Logo del negocio: se achica a PNG y se guarda en la ficha de tuweeb; de ahí lo toman el sitio, las reservas y este panel */
+function logoPng(archivo) {
+  return new Promise((ok, mal) => {
+    const url = URL.createObjectURL(archivo), im = new Image();
+    im.onload = () => {
+      try {
+        let lado = 600, png = '';
+        while (lado >= 120) {
+          const k = Math.min(1, lado / Math.max(im.naturalWidth || 1, im.naturalHeight || 1)), c = document.createElement('canvas');
+          c.width = Math.max(1, Math.round((im.naturalWidth || lado) * k)); c.height = Math.max(1, Math.round((im.naturalHeight || lado) * k));
+          const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(im, 0, 0, c.width, c.height);
+          png = c.toDataURL('image/png'); if (png.length < 450000) break; lado = Math.round(lado * 0.75);
+        }
+        URL.revokeObjectURL(url); ok(png);
+      } catch (e) { mal(new Error('No pude leer esa imagen.')); }
+    };
+    im.onerror = () => { URL.revokeObjectURL(url); mal(new Error('No pude leer esa imagen. Probá con un PNG o JPG.')); };
+    im.src = url;
+  });
+}
+function logoSubir() {
+  const vista = h('img', { src: (window.TEMA && TEMA.logo) || (S.pub && S.pub.logoUrl) || '', alt: 'Tu logo', style: 'max-height:56px;max-width:140px;object-fit:contain;background:rgba(255,255,255,.08);border-radius:8px;padding:6px' });
+  const arch = h('input', { type: 'file', accept: 'image/*', style: 'display:none' }), btn = h('button', { type: 'button', class: 'btn soft sm' }, 'Cambiar logo');
+  btn.onclick = () => arch.click();
+  arch.onchange = () => { const f = arch.files[0]; if (!f) return; accion(btn, async () => { const png = await logoPng(f); await api('admin.guardarLogo', { logo: png }); vista.src = png; if (window.TEMA) TEMA.logo = png; marca && marca(); toast('Logo cambiado: ya se ve en tu web y en las reservas', 'ok'); }); };
+  return h('div', { class: 'field' }, h('span', null, 'Logo'), h('div', { class: 'row', style: 'gap:.8rem;align-items:center' }, vista, btn, arch));
+}
+async function vAjustes(main) {
+  cargando(main); let c; try { c = await api('admin.config'); } catch (e) { main.replaceChildren(h('p', { class: 'empty' }, e.message)); return; }
+  const t = (n, l, p) => campo(l, inp(n, { value: c[n], ...p })), chk = (n, l) => h('label', { class: 'row', style: 'margin-bottom:.7rem' }, inp(n, { type: 'checkbox', checked: c[n] }), l);
+  const f = h('form', { onsubmit: ev => { ev.preventDefault(); const x = datos(f); ['mesesAnticipacion', 'antelacionHoras', 'holdHorasTransferencia', 'maxPendientesPorContacto'].forEach(k => { x[k] = Number(x[k]); }); accion($('button.btn.block', f), async () => { await api('admin.guardarConfig', { valores: x }); S.pub = await llamar('config', {}, 'get'); marca(); toast('Ajustes guardados', 'ok'); render(); }); } },
+    h('h3', { class: 'sec' }, 'Tu negocio'), t('nombre', 'Nombre', { required: true }), (window.TEMA && TEMA.cliente ? logoSubir() : t('logoUrl', 'Logo (dirección de la imagen)', { placeholder: 'https://…/logo.png' })), t('colorPrincipal', 'Color principal', { type: 'color' }), t('whatsapp', 'WhatsApp (con código de país, solo números)', { placeholder: '5491155551234' }), t('direccion', 'Dirección'), t('mapsUrl', 'Link de "Cómo llegar" (Google Maps)'),
+    h('h3', { class: 'sec' }, 'Opiniones de Google Maps'), h('p', { class: 'muted small' }, 'Si querés mostrar tus opiniones en la página de planes, cargá los datos y prendé el interruptor. El botón «Ver las opiniones» usa el link de Google Maps de arriba. Si no lo prendés, no se ve nada.'), chk('pgOpiniones', 'Mostrar las opiniones en mi web'),
+    h('div', { class: 'grid2' }, t('pgOpinionesPuntaje', 'Puntuación', { placeholder: '4,9' }), t('pgOpinionesCantidad', 'Opiniones', { placeholder: '129' })),
+    h('h3', { class: 'sec' }, 'Cobro por transferencia'), chk('pagoTransferencia', 'Aceptar reservas con pago por transferencia'), t('transferTitular', 'Titular de la cuenta'), t('transferAlias', 'Alias'), t('transferCbu', 'CBU / CVU'), t('transferBanco', 'Banco o billetera'), t('transferNota', 'Mensaje para el cliente (opcional)'),
+    h('h3', { class: 'sec' }, 'Reglas de reserva'), h('div', { class: 'grid2' }, t('mesesAnticipacion', 'Hasta cuántos meses antes se puede reservar', { type: 'number', min: '1' }), t('antelacionHoras', 'Mínimo de horas de anticipación', { type: 'number', min: '0' })),
+    h('div', { class: 'grid2' }, t('holdHorasTransferencia', 'Horas que se guarda el turno esperando la transferencia', { type: 'number', min: '1' }), t('maxPendientesPorContacto', 'Máx. reservas pendientes por persona', { type: 'number', min: '1' })), chk('autoConfirmarSinSena', 'Si el turno no tiene seña, confirmarlo automáticamente'),
+    h('h3', { class: 'sec' }, 'Avisos por mail'), chk('emailsActivos', 'Mandar mails de confirmación'), t('emailAdmin', 'Mail donde recibís los avisos', { type: 'email' }), campo('Mensaje extra en el mail al cliente', h('textarea', { name: 'textoConfirmacion', rows: 2 }, c.textoConfirmacion)),
+    h('button', { class: 'btn block' }, 'Guardar ajustes'));
+  const cf = h('form', { onsubmit: ev => { ev.preventDefault(); const x = datos(cf); accion($('button', cf), async () => { const r = await api('admin.cambiarClave', { actual: x.actual, nueva: x.nueva }); S.token = r.token; localStorage.setItem('weeb_token', r.token); cf.reset(); toast('Clave cambiada', 'ok'); }); } },
+    campo('Clave actual', inp('actual', { type: 'password', required: true, autocomplete: 'current-password' })), campo('Clave nueva (mínimo 8 caracteres)', inp('nueva', { type: 'password', required: true, minlength: '8', autocomplete: 'new-password' })), h('button', { class: 'btn line' }, 'Cambiar clave'));
+  const ce = h('form', { onsubmit: ev => { ev.preventDefault(); const x = datos(ce); accion($('button', ce), async () => { const r = await api('admin.cambiarEmail', { email: x.email, clave: x.clave }); S.token = r.token; S.user = r; localStorage.setItem('weeb_token', r.token); localStorage.setItem('weeb_email', r.email); try { localStorage.setItem('weeb_email_' + ((window.TEMA && TEMA.demoId) || ''), r.email); } catch (e) {} ce.reset(); toast('Listo: ahora entrás con ' + r.email, 'ok'); render(); }); } },
+    campo('Mail nuevo (es tu usuario para entrar)', inp('email', { type: 'email', required: true, autocomplete: 'email' })), campo('Tu clave actual', inp('clave', { type: 'password', required: true, autocomplete: 'current-password' })), h('button', { class: 'btn line' }, 'Cambiar mi mail'));
+  const ios = /iphone|ipad/i.test(navigator.userAgent) && !navigator.standalone;
+  const app = S.instalar ? h('button', { class: 'btn soft', onclick: async () => { S.instalar.prompt(); await S.instalar.userChoice; S.instalar = null; render(); } }, '📲 Instalar como app') : ios ? h('p', { class: 'muted small' }, '📲 Para instalar en iPhone: tocá el botón Compartir de Safari y elegí "Agregar a inicio".') : h('p', { class: 'muted small' }, 'Si tu navegador lo permite, vas a ver acá el botón para instalar el panel como app.');
+  main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Ajustes')), h('div', { class: 'card' }, app), f, h('h3', { class: 'sec' }, 'Seguridad'), h('div', { class: 'card' }, h('p', { class: 'muted small' }, 'Tu usuario es tu mail: ' + S.user.email + '. Para cambiarlo alcanza con tu clave actual.'), ce, h('h4', { style: 'margin:1.2rem 0 .4rem' }, 'Cambiar clave'), cf));
+}
+
+iniciar().catch(e => { $app().replaceChildren(h('p', { class: 'empty' }, 'No se pudo cargar el panel: ' + e.message)); });
+
+/* ───── Página de planes: todo lo que ve el cliente se edita acá ───── */
+const CAMPOS_PG = [
+  ['Arriba de todo', [['pgEtiqueta', 'Etiqueta chica'], ['pgTitulo', 'Título (las *palabras entre asteriscos* salen resaltadas)'], ['pgBajada', 'Bajada', 1]]],
+  ['Planes', [['pgDestacado', 'Cartel del plan del medio (vacío = sin cartel)'], ['pgBotonPlan', 'Texto del botón de cada plan']]],
+  ['Cambiar de plan', [['pgCanjeTitulo', 'Título'], ['pgCanjeTexto', 'Explicación', 1]]],
+  ['Promo (aparece sola si un horario tiene «promo» en su nombre)', [['pgPromoPill', 'Cartelito'], ['pgPromoTitulo', 'Título'], ['pgPromoTexto', 'Texto', 1], ['pgPromoBoton', 'Texto del botón']]],
+  ['Títulos de las secciones', [['pgIncluyeTitulo', 'Fotos y detalle: título'], ['pgIncluyeSub', 'Fotos y detalle: bajada'], ['pgAdicionalesTitulo', 'Adicionales: título'], ['pgPasosTitulo', 'Pasos: título'], ['pgPasosSub', 'Pasos: bajada', 1], ['pgFaqTitulo', 'Preguntas: título']]],
+  ['Final de la página', [['pgCtaTexto', 'Frase', 1], ['pgCtaBoton', 'Botón de disponibilidad'], ['pgCtaWhatsapp', 'Botón de WhatsApp'], ['pgNota', 'Nota al pie (después van el nombre y la dirección)']]]
+];
+const BLOQUES_PG = [
+  ['incluido', 'Incluido en todos los combos', 'Frases cortas que aparecen arriba, en etiquetas.', ['titulo']],
+  ['detalle', 'Fotos y detalle del festejo', 'Tarjetas con foto, título y texto.', ['etiqueta', 'titulo', 'texto', 'imagen']],
+  ['adicionales', 'Adicionales que se pueden sumar', 'Etiquetas con lo que se puede agregar.', ['titulo']],
+  ['pasos', 'Pasos para reservar', 'Los pasos que ve quien reserva.', ['titulo', 'texto']],
+  ['faq', 'Preguntas frecuentes', 'Pregunta y respuesta.', ['titulo', 'texto']],
+  ['galeria', 'Galería de fotos', 'Las fotos de la página Galería: foto, título y descripción. Si no cargás ninguna, se muestran las de ejemplo.', ['titulo', 'texto', 'imagen']]
+];
+function paginaPlanes(cfg, cont) {
+  return [
+    h('div', { class: 'row', style: 'margin-bottom:.5rem' }, h('a', { class: 'btn soft sm', href: '../planes.html', target: '_blank', rel: 'noopener' }, 'Ver la página')),
+    h('p', { class: 'muted small', style: 'margin-bottom:.6rem' }, 'La página de planes es la vitrina de lo que vendés y se arma sola con lo de acá: los planes y precios de arriba, más estos textos, fotos y preguntas. Cambiás algo y se ve al instante.'),
+    h('button', { class: 'btn soft block', style: 'margin-bottom:.8rem', onclick: () => textosPg(cfg) }, 'Editar títulos y textos'),
+    ...BLOQUES_PG.filter(b => b[0] !== 'galeria').map(([sec, tit, ayuda, campos]) => { const l = cont.filter(x => x.seccion === sec).sort((a, b) => a.orden - b.orden);
+      return h('div', { style: 'margin-bottom:1rem' }, h('div', { class: 'bar', style: 'margin:.6rem 0 .3rem' }, h('b', null, tit), h('button', { class: 'btn sm', onclick: () => bloquePg({ seccion: sec }, tit, campos) }, '+ Agregar')),
+        h('p', { class: 'muted small', style: 'margin-bottom:.4rem' }, ayuda),
+        l.length ? h('div', { class: 'list' }, l.map(x => h('button', { class: 'item', onclick: () => bloquePg(x, tit, campos) }, h('div', { class: 'main' }, h('b', null, x.titulo), x.texto || x.etiqueta ? h('span', { class: 'muted small' }, [x.etiqueta, x.texto].filter(Boolean).join(' · ').slice(0, 90)) : ''), x.activo ? '' : h('span', { class: 'chip' }, 'oculto')))) : h('p', { class: 'empty' }, 'Todavía no hay nada. Esta parte no se muestra en la página.'));
+    })];
+}
+function galeriaPanel(cont) {
+  const l = cont.filter(x => x.seccion === 'galeria').sort((a, b) => a.orden - b.orden), campos = ['titulo', 'texto', 'imagen'], tit = 'Galería de fotos';
+  const foto = u => (/^(https?:|data:)/i.test(u) ? u : '../' + String(u).replace(/^\.\//, ''));
+  return [
+    h('div', { class: 'bar', style: 'margin:0 0 .5rem' }, h('a', { class: 'btn soft sm', href: '../galeria.html', target: '_blank', rel: 'noopener' }, 'Ver la página'), h('button', { class: 'btn sm', onclick: () => bloquePg({ seccion: 'galeria' }, tit, campos) }, '+ Agregar foto')),
+    h('p', { class: 'muted small', style: 'margin-bottom:.6rem' }, 'Son las fotos de la página Galería del sitio. Tocá una foto para cambiarla, ponerle título u ocultarla. Si no cargás ninguna, la página muestra las de ejemplo.'),
+    l.length ? h('div', { class: 'ggrid' }, l.map(x => h('button', { class: 'gth' + (x.activo ? '' : ' off'), onclick: () => bloquePg(x, tit, campos), 'aria-label': 'Editar ' + (x.titulo || 'foto') },
+      x.imagen ? h('img', { src: foto(x.imagen), alt: '', loading: 'lazy' }) : h('span', { class: 'muted small', style: 'padding:1rem' }, 'Sin foto'), h('span', { class: 'gt' }, x.titulo || 'Sin título'), x.activo ? '' : h('span', { class: 'chip' }, 'oculta')))) : h('p', { class: 'empty' }, 'Todavía no cargaste fotos: la página muestra las de ejemplo.')];
+}
+function textosPg(cfg) {
+  const f = h('form', { onsubmit: ev => { ev.preventDefault(); const x = datos(f), valores = {}; CAMPOS_PG.forEach(([, cs]) => cs.forEach(([k]) => { valores[k] = x[k] || ''; })); accion($('button.btn.block', f), async () => { await api('admin.guardarConfig', { valores }); toast('Textos guardados', 'ok'); cerrar(); refrescar(); }); } },
+    ...CAMPOS_PG.map(([tit, cs]) => h('div', { style: 'margin-bottom:.4rem' }, h('h4', { style: 'margin:.8rem 0 .4rem' }, tit), ...cs.map(([k, et, area]) => campo(et, area ? h('textarea', { name: k, rows: 3, maxlength: '500' }, cfg[k] || '') : inp(k, { value: cfg[k] || '', maxlength: '500' }))))),
+    h('button', { class: 'btn block' }, 'Guardar textos'));
+  sheet('Textos de la página de planes', f);
+}
+/** Foto de un bloque: se sube desde el celular o la compu (se achica sola); también se puede pegar un link. */
+function campoFoto(url0) {
+  const val = inp('imagen', { type: 'hidden', value: url0 }), prev = h('div', { class: 'fotoprev' }), foto = u => (/^(https?:|data:)/i.test(u) ? u : '../' + String(u).replace(/^\.\//, ''));
+  let nuevaFoto = false;
+  const pintar = () => { prev.replaceChildren(val.value ? h('img', { src: foto(val.value), alt: 'Foto', style: 'max-width:100%;max-height:180px;border-radius:12px;display:block;margin-bottom:.5rem', onerror: e => e.target.replaceWith(h('span', { class: 'muted small' }, 'No se pudo mostrar la foto.')) }) : h('p', { class: 'muted small' }, 'Todavía no hay foto.'), nuevaFoto && val.value ? h('p', { class: 'small', style: 'font-weight:700;margin:0 0 .6rem;color:#d9f7a6' }, '✓ Foto cargada. Falta tocar «Guardar» (abajo) para publicarla.') : ''); };
+  const sel = h('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp,image/*', style: 'display:none' });
+  const subir = h('button', { type: 'button', class: 'btn soft sm', onclick: () => sel.click() }, val.value ? 'Cambiar foto' : 'Subir foto');
+  sel.addEventListener('change', async () => { const f = sel.files && sel.files[0]; if (!f) return; await accion(subir, async () => { const a = await leerArchivo(f); const r = await api('admin.subirFoto', a); val.value = r.url; nuevaFoto = true; pintar(); }); subir.textContent = val.value ? 'Cambiar foto' : 'Subir foto'; sel.value = ''; });
+  const quitar = h('button', { type: 'button', class: 'btn line sm', onclick: () => { val.value = ''; subir.textContent = 'Subir foto'; pintar(); } }, 'Quitar foto');
+  pintar();
+  return h('div', { class: 'field' }, h('span', null, 'Foto'), prev, h('div', { class: 'row' }, subir, quitar), sel, val);
+}
+function bloquePg(x, tit, campos) {
+  const nuevo = !x.id, ET = { titulo: x.seccion === 'faq' ? 'Pregunta' : x.seccion === 'pasos' ? 'Paso' : 'Título', texto: x.seccion === 'faq' ? 'Respuesta' : 'Texto', etiqueta: 'Etiqueta chica (arriba del título)', imagen: 'Foto (link https:// o una foto del sitio, ej. assets/galeria/galeria-01.webp)' };
+  const f = h('form', { onsubmit: ev => { ev.preventDefault(); const d = datos(f); accion($('button.btn.block', f), async () => { await api('admin.guardarContenido', { id: x.id, seccion: x.seccion, titulo: d.titulo || (x.seccion === 'galeria' ? 'Foto' : ''), texto: d.texto, etiqueta: d.etiqueta, imagen: d.imagen, orden: d.orden, activo: d.activo }); toast('Guardado', 'ok'); cerrar(); refrescar(); }); } },
+    ...campos.map(k => k === 'imagen' ? campoFoto(x.imagen || '') : campo(ET[k], k === 'texto' ? h('textarea', { name: k, rows: 4, maxlength: '600' }, x[k] || '') : inp(k, { required: k === 'titulo' && x.seccion !== 'galeria', maxlength: k === 'imagen' ? '300' : '160', value: x[k] || '' }))),
+    h('div', { class: 'grid2' }, campo('Orden (1, 2, 3…)', inp('orden', { type: 'number', value: x.orden || '' })), h('label', { class: 'row', style: 'align-self:end;margin-bottom:1rem' }, inp('activo', { type: 'checkbox', checked: x.activo !== false }), 'Se muestra')),
+    h('button', { class: 'btn block' }, 'Guardar'),
+    nuevo ? '' : h('button', { type: 'button', class: 'btn line block', style: 'margin-top:.6rem', onclick: e => { if (!confirm('¿Borrar esto de la página de planes?')) return; accion(e.target, async () => { await api('admin.borrarContenido', { id: x.id }); toast('Borrado', 'ok'); cerrar(); refrescar(); }); } }, 'Borrar'));
+  sheet((nuevo ? 'Agregar · ' : 'Editar · ') + tit, f);
+}

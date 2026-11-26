@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Creá tu weeb — tuweeb</title>
+<meta name="description" content="Subí tu logo y en un minuto tenés tu sitio 3D, planes, galería, invitaciones y panel funcionando con tu marca." />
+<meta name="theme-color" content="#2b1c44" />
+<link rel="icon" type="image/svg+xml" href="../reservar/tuweeb-icono.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{--bg:#1a1026;--bg2:#2b1c44;--ink:#fbf9ff;--mute:rgba(251,249,255,.72);--line:rgba(255,255,255,.16);--card:rgba(255,255,255,.08);--ac:#e8693a;--vi:#8149bd;--ok:#6fe3a0;--bad:#ff8a7a}
+  *{box-sizing:border-box}
+  html{background:#1a1026}
+  body{margin:0;min-height:100dvh;font:500 1rem/1.5 'Montserrat',system-ui,sans-serif;color:var(--ink);background:radial-gradient(120% 60% at 50% -10%,#4a2d78,transparent 60%),linear-gradient(#2b1c44,#1a1026);padding:max(18px,env(safe-area-inset-top)) 18px max(28px,env(safe-area-inset-bottom))}
+  main{max-width:560px;margin:0 auto}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}
+  .marca{display:flex;align-items:center;gap:9px;font-weight:800;font-size:1.25rem;letter-spacing:.01em}.marca img{display:block}
+  header a{color:var(--mute);font-size:.85rem;text-decoration:none}
+  h1{font-size:1.75rem;line-height:1.15;margin:0 0 8px;font-weight:800}
+  .sub{color:var(--mute);margin:0 0 22px}
+  .pasos{display:flex;gap:8px;margin:0 0 22px;padding:0;list-style:none}
+  .pasos li{flex:1;font-size:.78rem;font-weight:700;color:var(--mute);border-top:3px solid var(--line);padding-top:7px}
+  .pasos li.on{color:var(--ink);border-color:var(--ac)}
+  .pasos li.hecho{border-color:var(--ok);color:var(--ink)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px;margin-bottom:16px}
+  label{display:block;font-weight:700;font-size:.9rem;margin:0 0 6px}
+  .ayuda{display:block;color:var(--mute);font-size:.8rem;font-weight:500;margin-top:5px}
+  input[type=text],input[type=email],input[type=tel],input[type=number],textarea{width:100%;font:inherit;color:var(--ink);background:rgba(0,0,0,.28);border:1.5px solid var(--line);border-radius:12px;padding:13px 14px;min-height:48px}
+  textarea{min-height:76px;resize:vertical}
+  input:focus,textarea:focus,button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid rgba(232,105,58,.55);outline-offset:2px}
+  .campo{margin-bottom:16px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:700 1rem 'Montserrat',system-ui,sans-serif;min-height:52px;padding:0 22px;border-radius:999px;border:0;background:var(--ac);color:#fff;cursor:pointer;text-decoration:none;width:100%;box-shadow:0 12px 26px -14px rgba(232,105,58,.9)}
+  .btn.sec{background:rgba(255,255,255,.1);color:var(--ink);box-shadow:none;border:1px solid var(--line)}
+  .btn.sm{min-height:44px;width:auto;font-size:.9rem;padding:0 16px;white-space:nowrap;flex:0 0 auto}
+  .btn[disabled]{opacity:.55;cursor:default}
+  .fila{display:flex;gap:10px}.fila>*{flex:1}
+  .sube{display:grid;place-items:center;text-align:center;gap:6px;border:2px dashed rgba(255,255,255,.3);border-radius:18px;padding:26px 14px;cursor:pointer;background:rgba(0,0,0,.18)}
+  .sube.drag{border-color:var(--ac);background:rgba(232,105,58,.12)}
+  .sube strong{font-size:1.05rem}.sube span{color:var(--mute);font-size:.85rem}
+  .sube input{position:absolute;opacity:0;width:1px;height:1px}
+  .vista{display:grid;gap:12px}
+  .lienzo{display:grid;place-items:center;border-radius:16px;padding:18px;min-height:130px;background:linear-gradient(135deg,var(--c1,#4a2d78),#1a1026)}
+  .lienzo img{max-width:100%;max-height:120px}
+  .claro{background:#fff}
+  .cielo{background:radial-gradient(ellipse 70% 45% at 50% 62%,#fff 0,#fff 55%,rgba(255,255,255,0) 100%),linear-gradient(#6cc3f5,#cfeaff)}
+  #silBox.falta .paleta{outline:2px dashed var(--ac);outline-offset:6px;border-radius:14px}
+  .chip{min-height:40px;padding:6px 14px;border-radius:999px;border:2px solid var(--line);background:rgba(0,0,0,.2);color:var(--ink);font:700 .85rem 'Montserrat',system-ui,sans-serif;cursor:pointer}.chip.on{border-color:var(--ac);background:rgba(232,105,58,.14)}
+  .roles{flex-wrap:wrap}.roles .rol{flex:1 1 42%}
+  .chips{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .roles{display:flex;gap:10px}.rol{flex:1;display:flex;align-items:center;gap:10px;min-height:52px;padding:6px 14px;border-radius:14px;border:2px solid var(--line);background:rgba(0,0,0,.2);color:var(--ink);font:700 .9rem 'Montserrat',system-ui,sans-serif;cursor:pointer}.rol.on{border-color:var(--ac);background:rgba(232,105,58,.12)}.rol i{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.5);flex:none;background:#777}
+  .paleta{display:flex;flex-wrap:wrap;gap:10px}.sw{width:46px;height:46px;border-radius:50%;border:3px solid rgba(255,255,255,.35);cursor:pointer;padding:0}.sw.sel{border-color:#fff;box-shadow:0 0 0 3px var(--ac)}
+  #logoImg2{cursor:crosshair}.pick{position:relative}
+  .col{display:flex;align-items:center;gap:10px;font-size:.85rem;font-weight:700}
+  .col input[type=color]{width:46px;height:46px;border:2px solid var(--line);border-radius:50%;padding:0;background:none;cursor:pointer}
+  .col input[type=color]::-webkit-color-swatch-wrapper{padding:0}.col input[type=color]::-webkit-color-swatch{border:0;border-radius:50%}
+  .aviso{border-radius:14px;padding:12px 14px;font-size:.88rem;background:rgba(255,138,122,.14);border:1px solid rgba(255,138,122,.4)}
+  .ok{background:rgba(111,227,160,.12);border-color:rgba(111,227,160,.4)}
+  .opciones{display:grid;gap:12px}
+  .op{display:block;border:2px solid var(--line);border-radius:18px;padding:16px;cursor:pointer;background:var(--card)}
+  .op input{position:absolute;opacity:0}
+  .op.sel{border-color:var(--ac);background:rgba(232,105,58,.12)}
+  .op strong{display:block;font-size:1.05rem}.op span{color:var(--mute);font-size:.88rem}
+  .rec{display:inline-block;background:var(--ac);color:#fff;font-size:.68rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:999px;margin-left:8px;vertical-align:middle}
+  .plan{border-top:1px solid var(--line);padding-top:14px;margin-top:14px}
+  .plan h3{margin:0 0 10px;font-size:.95rem}
+  .acciones{display:grid;gap:10px;margin-top:6px}
+  .link{background:none;border:0;color:var(--mute);text-decoration:underline;font:inherit;font-size:.88rem;cursor:pointer;padding:10px;justify-self:center}
+  .resumen{display:flex;gap:14px;align-items:center}.resumen img{width:84px;max-height:64px;object-fit:contain;background:rgba(0,0,0,.25);border-radius:12px;padding:8px}
+  .resumen b{display:block}.resumen small{color:var(--mute)}
+  .listo h1{color:var(--ok)}
+  .datos{display:grid;gap:8px;font-size:.92rem}.datos div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding-bottom:8px}.datos b{word-break:break-all;text-align:right}
+  .girando{display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:g .8s linear infinite}
+  @keyframes g{to{transform:rotate(360deg)}}
+  @media(prefers-reduced-motion:reduce){.girando{animation:none}}
+  [hidden]{display:none!important}
+  details{margin-top:8px}summary{cursor:pointer;color:var(--mute);font-size:.88rem}
+  footer{margin-top:26px;color:var(--mute);font-size:.78rem;text-align:center}
+</style>
+</head>
+<body>
+<main>
+  <header><span class="marca"><img src="../reservar/tuweeb-icono.svg" alt="" width="34" height="34" /><b>tuweeb</b></span><a href="../">← Volver al sitio</a></header>
+
+  <section id="p1">
+    <h1>Creá tu weeb</h1>
+    <p class="sub">Subí tu logo y en un minuto tenés tu sitio 3D, planes, galería, invitaciones y panel, funcionando con tu marca. Es gratis y no necesitás tarjeta.</p>
+    <ol class="pasos" aria-label="Pasos"><li class="on">1 · Tu logo</li><li>2 · Tus planes</li><li>3 · Listo</li></ol>
+
+    <div id="opBox" class="card" hidden>
+      <label for="opQ">Salón de la lista <span id="opCuenta" style="font-weight:500;color:var(--mute)"></span></label>
+      <input id="opQ" type="search" autocomplete="off" placeholder="Buscá por nombre o ciudad" />
+      <div id="opLista" style="margin-top:8px;max-height:260px;overflow:auto;display:grid;gap:6px"></div>
+      <span class="ayuda" id="opEstado" style="margin-top:8px;display:block">Elegí uno y se cargan solos el nombre, el mail, el WhatsApp y el logo.</span>
+    </div>
+    <div id="misWeebs" hidden></div>
+    <div class="card">
+      <div class="campo"><label for="nombre">¿Cómo se llama tu negocio?</label><input id="nombre" type="text" maxlength="60" autocomplete="organization" placeholder="Ej: Casa Luna" /></div>
+      <div class="campo"><label for="email">Tu mail</label><input id="email" type="email" autocomplete="email" inputmode="email" placeholder="tu@mail.com" /><span class="ayuda">Te mandamos los links de tu sitio y de tu panel. Es también tu usuario del panel.</span></div>
+      <div class="campo" style="margin-bottom:0"><label for="wsp">WhatsApp de tu negocio <span style="font-weight:500;color:var(--mute)">(opcional)</span></label><input id="wsp" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ej: 3436 123456" /><span class="ayuda">Lo usamos en los botones de WhatsApp de tu sitio.</span></div>
+    </div>
+
+    <div class="card">
+      <label for="archivo" style="margin-bottom:10px">Tu logo</label>
+      <label class="sube" id="sube" for="archivo"><strong>Tocá para subir tu logo</strong><span>PNG, JPG o SVG · mejor si tiene el fondo liso o transparente</span><input id="archivo" type="file" accept="image/*,.svg" /></label>
+      <div id="proc" class="aviso ok" hidden style="margin-top:12px"><span class="girando"></span> Preparando tu logo…</div>
+      <div id="err" class="aviso" hidden style="margin-top:12px" role="alert"></div>
+      <div id="vista" class="vista" hidden style="margin-top:14px">
+        <div class="lienzo" id="lienzo"><img id="logoImg" alt="Tu logo" /></div>
+        <div class="lienzo claro"><img id="logoImg2" alt="Tu logo sobre fondo claro" /></div>
+        <div>
+          <label style="margin-bottom:8px">Colores de tu marca</label>
+          <div class="roles" role="radiogroup" aria-label="Qué color cambiar">
+            <button type="button" class="rol on" id="rol1" role="radio" aria-checked="true"><i id="sw1"></i><span>Principal</span></button>
+            <button type="button" class="rol" id="rol2" role="radio" aria-checked="false"><i id="sw2"></i><span>Secundario</span></button>
+            <button type="button" class="rol" id="rol3" role="radio" aria-checked="false"><i id="sw3"></i><span>Color 3</span></button>
+            <button type="button" class="rol" id="rol4" role="radio" aria-checked="false"><i id="sw4"></i><span>Color 4</span></button>
+          </div>
+          <span class="ayuda" id="ayudaRol" style="margin:8px 0 6px">Elegí uno de arriba y tocá un color de tu logo.</span>
+          <div class="paleta" id="paleta" aria-label="Colores de tu logo"></div>
+          <div class="fila" style="margin-top:10px;flex-wrap:wrap"><button type="button" class="btn sec sm" id="gotero" hidden>Elegir de la pantalla</button><label class="btn sec sm" for="otroColor" style="margin:0;cursor:pointer">Otro color…<input id="otroColor" type="color" style="position:absolute;opacity:0;width:1px;height:1px" /></label><button type="button" class="btn sec sm" id="c2no" hidden>Que lo arme solo</button></div>
+          <span class="ayuda" style="margin-top:8px">Tocá también tu logo (arriba) para copiar ese color exacto. La escena 3D usa 4 colores: si tu logo tiene menos, armamos los que faltan con tonos parecidos.</span>
+        </div>
+        <div id="silBox">
+          <label style="margin-bottom:8px">Color de la silueta <span style="color:var(--ac)">(obligatorio)</span></label>
+          <span class="ayuda" style="margin:0 0 8px">Tu logo queda tal cual lo subiste, apoyado sobre una base 3D que sigue su forma. Elegí de qué color es esa base: si tu logo es blanco o claro, elegí uno oscuro.</span>
+          <div class="paleta" id="silPaleta" aria-label="Color de la silueta"></div>
+          <div style="margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px"><label class="btn sec sm" for="silOtro" style="margin:0;cursor:pointer">Otro color…<input id="silOtro" type="color" style="position:absolute;opacity:0;width:1px;height:1px" /></label><span class="ayuda" style="margin:0">Grosor:</span><button type="button" class="chip" data-g="fino">Fino</button><button type="button" class="chip on" data-g="medio">Medio</button><button type="button" class="chip" data-g="grueso">Grueso</button></div>
+          <div class="lienzo cielo" style="margin-top:12px"><img id="logo3dImg" alt="Así se ve tu logo en el 3D" /></div>
+          <span class="ayuda" id="silAyuda" style="margin-top:6px">Así se ve sobre el cielo, parecido a como queda en el 3D.</span>
+        </div>
+        <div class="aviso ok" id="notaPlaca" hidden><span></span> <button type="button" class="link" id="dejarFondo" style="padding:4px 0;display:block">Prefiero dejar el fondo</button></div>
+        <div class="aviso" id="recorte" hidden style="display:none"><b style="display:block;margin-bottom:6px">Recortá tu logo</b><span class="ayuda" style="display:block;margin:0 0 8px">Cuanto más angosto el recorte, más grande se ve en el 3D. Movés las barras y soltás.</span>
+          <label class="ayuda" style="display:block">Izquierda <input type="range" id="rcL" min="0" max="45" value="0" style="width:100%"></label>
+          <label class="ayuda" style="display:block">Derecha <input type="range" id="rcR" min="0" max="45" value="0" style="width:100%"></label>
+          <label class="ayuda" style="display:block">Arriba <input type="range" id="rcT" min="0" max="45" value="0" style="width:100%"></label>
+          <label class="ayuda" style="display:block">Abajo <input type="range" id="rcB" min="0" max="45" value="0" style="width:100%"></label>
+          <button type="button" class="link" id="rcAuto" style="padding:4px 0;display:block">Ajustar al dibujo</button> <button type="button" class="link" id="rcRes" style="padding:4px 0;display:block">Sin recorte</button></div>
+        <div class="aviso">¿No te gustó cómo quedó? <a id="wspAyuda" href="#" target="_blank" rel="noopener" style="color:#fff;font-weight:800">Lo hacemos por vos, gratis, por WhatsApp</a>.</div>
+      </div>
+      <details id="sinlogo"><summary>Todavía no tengo logo</summary><p class="ayuda" style="margin:8px 0">Armamos uno con el nombre de tu negocio. Después lo cambiás cuando quieras.</p><button type="button" class="btn sec sm" id="usaNombre">Usar mi nombre como logo</button></details>
+    </div>
+    <div class="acciones"><button class="btn" id="sig1" disabled>Seguir</button><span class="ayuda" id="falta1" style="text-align:center"></span></div>
+  </section>
+
+  <section id="p2" hidden>
+    <h1>Tus planes</h1>
+    <p class="sub">Tu sitio muestra combos con precios. ¿Con cuáles querés verlo?</p>
+    <ol class="pasos" aria-label="Pasos"><li class="hecho">1 · Tu logo</li><li class="on">2 · Tus planes</li><li>3 · Listo</li></ol>
+    <div class="opciones">
+      <label class="op sel" id="opEj"><input type="radio" name="pl" value="ej" checked /><strong>Ver con ejemplos <span class="rec">Recomendado</span></strong><span>Tres combos de ejemplo ya armados, con precios por horario. Después los cambiás desde tu panel.</span></label>
+      <label class="op" id="opCf"><input type="radio" name="pl" value="cf" /><strong>Configurar mis planes</strong><span>Cargá el nombre, el precio y la descripción de tus tres combos.</span></label>
+    </div>
+    <div id="cfg" class="card" hidden style="margin-top:14px"></div>
+    <div class="acciones" style="margin-top:18px"><button class="btn" id="sig2">Seguir</button><button class="link" id="atras2">← Volver</button></div>
+  </section>
+
+  <section id="p3" hidden>
+    <h1>Casi listo</h1>
+    <p class="sub">Revisá y creamos tu weeb.</p>
+    <ol class="pasos" aria-label="Pasos"><li class="hecho">1 · Tu logo</li><li class="hecho">2 · Tus planes</li><li class="on">3 · Listo</li></ol>
+    <div class="card resumen"><img id="resLogo" alt="" /><div><b id="resNombre"></b><small id="resMail"></small><br /><small id="resPlanes"></small></div></div>
+    <div id="errCrear" class="aviso" hidden role="alert"></div>
+    <div class="acciones"><button class="btn" id="crear">Crear mi weeb</button><button class="link" id="atras3">← Volver</button></div>
+    <p class="ayuda" style="text-align:center;margin-top:10px">Al crear, aceptás que tu demo se borra sola si no la usás por un tiempo.</p>
+  </section>
+
+  <section id="p4" class="listo" hidden>
+    <h1>¡Tu weeb está listo!</h1>
+    <p class="sub">Ya podés recorrerlo. También te mandamos los links por mail.</p>
+    <div class="acciones"><a class="btn" id="verSitio" href="#">Ver mi sitio</a><a class="btn sec" id="verPanel" href="#">Entrar a mi panel</a></div>
+    <div class="card datos" style="margin-top:16px">
+      <div><span>Tu link</span><b id="rLink"></b></div>
+      <div><span>Usuario del panel</span><b id="rMail"></b></div>
+      <div><span>Clave inicial</span><b>demo1234</b></div>
+      <div style="border:0;padding:0"><span>Podés cambiarla en el panel, en Seguridad.</span></div>
+    </div>
+    <div class="card"><b>¿Te gustó?</b><p class="sub" style="margin:6px 0 12px">Desde tu panel, en «Mi web», elegís el dominio y lo activamos. Si preferís, lo hacemos nosotros.</p><a class="btn sec sm" id="wspVenta" href="#" target="_blank" rel="noopener">Hablar con una persona</a></div>
+    <div id="opEnv" class="card" hidden>
+      <b>Enviar al salón</b>
+      <p class="ayuda" id="opEnvQuien" style="margin:6px 0 10px"></p>
+      <div class="acciones" style="display:grid;gap:8px">
+        <a class="btn" id="opMsg1" href="#" target="_blank" rel="noopener">1 · Mandar la web por WhatsApp</a>
+        <button type="button" class="btn sec" id="opMsg2">2 · Mandar la respuesta automática</button>
+        <a class="btn sec" id="opSig" href="../admin/">Siguiente salón</a>
+        <a class="btn line sm" id="opVolver" href="../admin/">Volver a la lista</a>
+      </div>
+      <span class="ayuda" id="opAviso" style="margin-top:8px;display:block"></span>
+    </div>
+    <button class="link" id="otro">Crear otro weeb</button>
+  </section>
+  <footer>tuweeb · sitios 3D con reservas · tu demo se guarda en este dispositivo</footer>
+</main>
+
+<script src="imagetracer.js?v=1"></script>
+<script src="vectorizar.js?v=11"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); }, S = { logo: '', svg: '', logo3d: '', c1: '#8149bd', c2: '', c3: '', c4: '', silC: '', gr: 'medio', png: '', planes: 'ej', plan: [] }, MASK = null, SILS = {}, CFG = { fabrica: '', whatsapp: '' };
+  /* Planes de ejemplo (mismos del sitio base): nombre, precio base y descripción corta. */
+  var EJ = [{ nombre: 'Combo Básico', precio: 180000, descripcion: '3 horas · hasta 30 invitados. Salón con juegos, mozo, cocinera y auxiliar de juegos, mesa para candy bar y vajilla.' },
+            { nombre: 'Combo Clásico', precio: 260000, descripcion: '3 horas · hasta 50 invitados. Todo lo del Combo Básico, más personal de atención y animación y baile.' },
+            { nombre: 'Combo Premium', precio: 380000, descripcion: '4 horas · hasta 80 invitados. Todo lo del Combo Clásico, 2 mozos y juegos especiales incluidos.' }];
+  fetch('config.json?v=1').then(function (r) { return r.json(); }).then(function (c) { CFG = c; ayudaWsp(); }).catch(function () {});
+
+  function mostrar(n) { ['p1', 'p2', 'p3', 'p4'].forEach(function (x) { $(x).hidden = x !== 'p' + n; }); window.scrollTo(0, 0); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function ayudaWsp() {
+    var t = 'Hola! Quiero crear mi weeb. Mi negocio: ' + ($('nombre').value || '(sin nombre)') + '. Mi mail: ' + ($('email').value || '') + '. ¿Me ayudan a dejar el logo bien?';
+    var tel = String(CFG.whatsapp || '').replace(/\D/g, ''); $('wspAyuda').href = tel ? 'https://wa.me/' + tel + '?text=' + encodeURIComponent(t) : '#'; $('wspVenta').href = tel ? 'https://wa.me/' + tel + '?text=' + encodeURIComponent('Hola! Ya probé mi weeb y quiero hablar con una persona.') : '#';
+  }
+  function error(m) { var e = $('err'); e.textContent = m || ''; e.hidden = !m; }
+  function validar() {
+    var f = [], mail = $('email').value.trim();
+    if ($('nombre').value.trim().length < 2) f.push('el nombre');
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(mail)) f.push('tu mail');
+    if (!S.logo) f.push('el logo'); else if (!S.silC) f.push('el color de la silueta');
+    $('sig1').disabled = !!f.length; $('falta1').textContent = f.length ? 'Falta: ' + f.join(', ') : '';
+  }
+  ['nombre', 'email', 'wsp'].forEach(function (i) { $(i).addEventListener('input', function () { validar(); ayudaWsp(); }); });
+
+  /* ── logo ── */
+  var svgUrl = function (svg) { return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg); };
+  function limpiarSvg(txt) {
+    var doc = new DOMParser().parseFromString(txt, 'image/svg+xml'), r = doc.documentElement;
+    if (!r || r.nodeName.toLowerCase() !== 'svg' || doc.querySelector('parsererror')) throw new Error('Ese SVG no se puede leer.');
+    doc.querySelectorAll('script,foreignObject,iframe,object,embed,audio,video,style[media]').forEach(function (n) { n.remove(); });
+    doc.querySelectorAll('*').forEach(function (n) { Array.prototype.slice.call(n.attributes).forEach(function (a) { var v = a.value.trim().toLowerCase(); if (/^on/i.test(a.name) || ((a.name === 'href' || a.name === 'xlink:href') && !/^#/.test(v) && !/^data:image\//.test(v))) n.removeAttribute(a.name); }); });
+    if (!r.getAttribute('viewBox')) { var w = parseFloat(r.getAttribute('width')), h = parseFloat(r.getAttribute('height')); if (w > 0 && h > 0) r.setAttribute('viewBox', '0 0 ' + w + ' ' + h); else throw new Error('Al SVG le falta el tamaño.'); }
+    r.removeAttribute('width'); r.removeAttribute('height'); r.setAttribute('data-relieve', '1'); return new XMLSerializer().serializeToString(r);
+  }
+  function aImageData(img, max, subir) {
+    var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height, k = subir ? max / Math.max(w, h) : Math.min(1, max / Math.max(w, h)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+    var x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0, c.width, c.height); return x.getImageData(0, 0, c.width, c.height);
+  }
+  function cargarImg(url) { return new Promise(function (ok, no) { var i = new Image(); i.onload = function () { ok(i); }; i.onerror = function () { no(new Error('No pudimos abrir esa imagen.')); }; i.src = url; }); }
+  var ULTIMO = null;
+  async function procesarArchivo(f, opt) {
+    ULTIMO = f; opt = opt || {};
+    if (f.size > 8e6) throw new Error('El archivo pesa más de 8 MB. Probá con uno más liviano.');
+    if (/svg/i.test(f.type) || /\.svg$/i.test(f.name)) {
+      var svg = limpiarSvg(await f.text()); if (svg.length > 400000) throw new Error('Ese SVG es muy pesado.');
+      var im = await cargarImg(svgUrl(svg)), id = aImageData(im, 520, true), c = Vectorizar.procesar({ width: id.width, height: id.height, data: new Uint8ClampedArray(id.data) }, opt);
+      c.imagen = id; return conMatte(c, id, opt);
+    }
+    var url = URL.createObjectURL(f); try { var img = await cargarImg(url); } finally { URL.revokeObjectURL(url); }
+    var d = aImageData(img, 520), orig = new ImageData(new Uint8ClampedArray(d.data), d.width, d.height), r = Vectorizar.procesar(d, opt); r.imagen = orig; return conMatte(r, orig, opt);
+  }
+  /* dejar el fondo: lo transparente se apoya sobre blanco; el recorte lo decide la persona con las barras (o "ajustar al dibujo") */
+  function recortarFondo(d, cr) {
+    cr = cr || {};
+    var w = d.width, h = d.height, src = d.data, o = new Uint8ClampedArray(src.length), i, x, y;
+    for (i = 0; i < w * h; i++) { var a = src[i * 4 + 3] / 255; for (var k = 0; k < 3; k++) o[i * 4 + k] = Math.round(src[i * 4 + k] * a + 255 * (1 - a)); o[i * 4 + 3] = 255; }
+    var X0 = 0, Y0 = 0, X1 = w - 1, Y1 = h - 1;
+    if (cr.auto) {
+      var br = o[0], bg = o[1], bb = o[2], a0 = w, b0 = h, a1 = -1, b1 = -1;
+      for (y = 0; y < h; y++) for (x = 0; x < w; x++) { i = (y * w + x) * 4; if (Math.abs(o[i] - br) + Math.abs(o[i + 1] - bg) + Math.abs(o[i + 2] - bb) > 40) { if (x < a0) a0 = x; if (x > a1) a1 = x; if (y < b0) b0 = y; if (y > b1) b1 = y; } }
+      if (a1 >= 0) { var pad = Math.round(Math.min(w, h) * .03); X0 = Math.max(0, a0 - pad); Y0 = Math.max(0, b0 - pad); X1 = Math.min(w - 1, a1 + pad); Y1 = Math.min(h - 1, b1 + pad); }
+    }
+    var bw = X1 - X0 + 1, bh = Y1 - Y0 + 1;
+    X0 += Math.round(bw * (cr.l || 0)); X1 -= Math.round(bw * (cr.r || 0)); Y0 += Math.round(bh * (cr.t || 0)); Y1 -= Math.round(bh * (cr.b || 0));
+    if (X1 - X0 < 20 || Y1 - Y0 < 20) return { w: w, h: h, data: o };
+    var nw = X1 - X0 + 1, nh = Y1 - Y0 + 1; if (nw === w && nh === h) return { w: w, h: h, data: o };
+    var out = new Uint8ClampedArray(nw * nh * 4); for (y = 0; y < nh; y++) out.set(o.subarray(((y + Y0) * w + X0) * 4, ((y + Y0) * w + X0 + nw) * 4), y * nw * 4);
+    return { w: nw, h: nh, data: out };
+  }
+  /* recorte fino del fondo (cada píxel conserva su color original) */
+  function conMatte(r, d, opt) {
+    var mt = null;
+    if (opt && opt.sinPlaca === false) { var cr = recortarFondo(d, opt.crop); mt = { w: cr.w, h: cr.h, data: cr.data, lab: new Int8Array(cr.w * cr.h).fill(0), fondo: '' }; }
+    else { try { mt = Vectorizar.matte(d, { placa: r.placaQuitada || '' }); } catch (e) { mt = null; } }
+    if (!mt) return r;
+    r.mascara = { w: mt.w, h: mt.h, lab: mt.lab }; r.imagen = { width: mt.w, height: mt.h, data: mt.data }; r.matte = true; r.fondoQuitado = !!mt.fondo; r.placaQuitada = false; return r;
+  }
+  async function logoDeNombre(nombre, color) {
+    try { await document.fonts.load('800 150px Montserrat'); } catch (e) {}
+    var c = document.createElement('canvas'), x = c.getContext('2d'); c.height = 220; x.font = '800 150px Montserrat, system-ui, sans-serif'; var w = Math.ceil(x.measureText(nombre).width) + 60; c.width = Math.min(1600, Math.max(300, w));
+    x.font = '800 150px Montserrat, system-ui, sans-serif'; x.textBaseline = 'middle'; x.fillStyle = color; if (w > c.width) { x.save(); x.scale(c.width / w, 1); x.fillText(nombre, 30, 118); x.restore(); } else x.fillText(nombre, 30, 118);
+    var d = x.getImageData(0, 0, c.width, c.height), orig = new ImageData(new Uint8ClampedArray(d.data), d.width, d.height), r = Vectorizar.procesar(d, { colores: 2 }); r.color = color; r.color2 = ''; r.imagen = orig; return conMatte(r, orig, {});
+  }
+  var rol = 1, PAL = [];
+  function pinta() {
+    for (var k = 1; k <= 4; k++) { var cc = S['c' + k]; $('sw' + k).style.background = cc || 'transparent'; $('sw' + k).style.borderStyle = cc ? 'solid' : 'dashed'; $('rol' + k).classList.toggle('on', rol === k); $('rol' + k).setAttribute('aria-checked', rol === k); }
+    $('lienzo').style.setProperty('--c1', S.c1 || '#4a2d78'); $('c2no').hidden = rol === 1 || !S['c' + rol];
+    $('paleta').innerHTML = PAL.map(function (h) { var sel = ('#' + h) === S['c' + rol]; return '<button type="button" class="sw' + (sel ? ' sel' : '') + '" data-c="' + h + '" style="background:#' + h + '" aria-label="Usar el color ' + h + '"></button>'; }).join('');
+    var nom = ['principal', 'secundario', '3', '4'][rol - 1]; $('ayudaRol').textContent = 'Cambiando el color ' + nom + ': tocá uno de tu logo.' + (rol > 2 ? ' Si lo dejás vacío lo armamos nosotros.' : '');
+    pintaSil();
+  }
+  function pintaSil() {
+    var base = PAL.concat(['ffffff', '1a1a2e', '2b2250']).filter(function (h, i, a) { return a.indexOf(h) === i; });
+    $('silPaleta').innerHTML = base.map(function (h) { return '<button type="button" class="sw' + (('#' + h) === S.silC ? ' sel' : '') + '" data-c="' + h + '" style="background:#' + h + '" aria-label="Silueta de color ' + h + '"></button>'; }).join('');
+    document.querySelectorAll('[data-g]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-g') === S.gr); });
+    $('silBox').classList.toggle('falta', !S.silC);
+  }
+  /* el logo plano (PNG sin fondo, con el mismo recuadro que la silueta) */
+  function armarPng(r, si) {
+    var im = r.imagen, w = im.width, h = im.height, m = r.mascara, lab = m.lab, sol = new Uint8Array(w * h), i, x, y;
+    for (i = 0; i < w * h; i++) sol[i] = r.matte ? (im.data[i * 4 + 3] > 0 ? 1 : 0) : (lab[i] >= 0 ? 1 : 0);
+    if (!r.matte && (r.fondoQuitado || r.placaQuitada)) { var e = new Uint8Array(sol); for (y = 1; y < h - 1; y++) for (x = 1; x < w - 1; x++) { i = y * w + x; if (sol[i] && !(sol[i - 1] && sol[i + 1] && sol[i - w] && sol[i + w])) e[i] = 0; } sol = e; }
+    var c0 = document.createElement('canvas'); c0.width = si.W; c0.height = si.H; var x0 = c0.getContext('2d'), out = x0.createImageData(si.W, si.H);
+    for (y = 0; y < h; y++) for (x = 0; x < w; x++) { i = y * w + x; if (!sol[i]) continue; var px = x - si.ox + si.r, py = y - si.oy + si.r; if (px < 0 || py < 0 || px >= si.W || py >= si.H) continue; var o = (py * si.W + px) * 4; out.data[o] = im.data[i * 4]; out.data[o + 1] = im.data[i * 4 + 1]; out.data[o + 2] = im.data[i * 4 + 2]; out.data[o + 3] = r.matte ? im.data[i * 4 + 3] : 255; }
+    x0.putImageData(out, 0, 0);
+    var u = '', tam = Math.min(700, Math.max(si.W, si.H));
+    while (tam >= 120) { var k = tam / Math.max(si.W, si.H), c = document.createElement('canvas'); c.width = Math.round(si.W * k); c.height = Math.round(si.H * k); var cx = c.getContext('2d'); cx.imageSmoothingQuality = 'high'; cx.drawImage(c0, 0, 0, c.width, c.height); u = c.toDataURL('image/png'); if (u.length < 420000) break; tam -= 100; }
+    return u;
+  }
+  /* arma lo del 3D: silueta (SVG de un solo color) + logo plano; el logo no cambia con el color */
+  function rehacer3d() {
+    if (!R0) return;
+    var si = SILS[S.gr] || (SILS[S.gr] = Vectorizar.silueta(MASK, S.gr)); if (!si.png) si.png = armarPng(R0, si);
+    S.png = si.png; S.logo = S.png; $('logoImg').src = S.png; $('logoImg2').src = S.png;
+    if (S.silC) S.logo3d = svgUrl(Vectorizar.silSvg(si, S.silC)); else S.logo3d = '';
+    var fondo = S.silC ? si.paths.replace(/fill="[^"]*"/g, 'fill="' + S.silC + '"') : '';
+    $('logo3dImg').src = svgUrl('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + si.W + ' ' + si.H + '">' + fondo + '<image href="' + S.png + '" width="' + si.W + '" height="' + si.H + '"/></svg>');
+    validar();
+  }
+  function luz(h) { h = h.replace('#', ''); var r = parseInt(h.substr(0, 2), 16), g = parseInt(h.substr(2, 2), 16), b = parseInt(h.substr(4, 2), 16); return (r * .299 + g * .587 + b * .114) / 255; }
+  var R0 = null, DEJAR = false;
+  function aplicarLogo(r) {
+    R0 = r; MASK = r.mascara; SILS = {}; S.silC = ''; S.gr = 'medio'; S.c1 = '#' + r.color; S.c2 = r.color2 ? '#' + r.color2 : ''; S.c3 = ''; S.c4 = ''; rol = 1;
+    PAL = (r.paleta || []).filter(function (h, i, a) { return a.indexOf(h) === i; }); [r.color, r.color2].forEach(function (h) { if (h && PAL.indexOf(h) < 0) PAL.push(h); });
+    $('vista').hidden = false; error('');
+    var np = $('notaPlaca'); np.hidden = !(r.placaQuitada || r.fondoQuitado || DEJAR); if (!np.hidden) { np.querySelector('span').textContent = DEJAR ? 'Dejamos el fondo de tu logo.' : r.placaQuitada ? 'Tu logo tiene un recuadro de color atrás: lo sacamos y queda solo el dibujo.' : 'Le sacamos el fondo a tu logo.'; $('dejarFondo').textContent = DEJAR ? 'Volver a sacarle el fondo' : 'Prefiero dejar el fondo'; } var rc = $('recorte'); rc.hidden = !DEJAR; rc.style.display = DEJAR ? '' : 'none';
+    pinta(); rehacer3d();
+  }
+  [1, 2, 3, 4].forEach(function (k) { $('rol' + k).addEventListener('click', function () { rol = k; pinta(); }); });
+  $('silPaleta').addEventListener('click', function (e) { var b = e.target.closest('.sw'); if (!b) return; S.silC = '#' + b.getAttribute('data-c'); pintaSil(); rehacer3d(); });
+  $('silOtro').addEventListener('input', function (e) { S.silC = e.target.value; pintaSil(); rehacer3d(); });
+  document.querySelectorAll('[data-g]').forEach(function (b) { b.addEventListener('click', function () { S.gr = b.getAttribute('data-g'); pintaSil(); rehacer3d(); }); });
+  $('paleta').addEventListener('click', function (e) { var b = e.target.closest('.sw'); if (!b) return; var h = b.getAttribute('data-c'); S['c' + rol] = '#' + h; pinta(); });
+  $('c2no').addEventListener('click', function () { S['c' + rol] = ''; pinta(); });
+  $('otroColor').addEventListener('input', function (e) { var h = e.target.value.replace('#', '').toLowerCase(); if (PAL.indexOf(h) < 0) PAL.push(h); S['c' + rol] = '#' + h; pinta(); });
+  /* tocar el logo: copia el color de ese punto */
+  $('logoImg2').addEventListener('click', function (e) {
+    var im = e.currentTarget, r = im.getBoundingClientRect(), nw = im.naturalWidth || r.width, nh = im.naturalHeight || r.height, k = Math.min(r.width / nw, r.height / nh), w = nw * k, h = nh * k, ox = (r.width - w) / 2, oy = (r.height - h) / 2, x = e.clientX - r.left - ox, y = e.clientY - r.top - oy;
+    if (x < 0 || y < 0 || x > w || y > h) return; var c = document.createElement('canvas'); c.width = Math.round(w * 2); c.height = Math.round(h * 2); var cx = c.getContext('2d', { willReadFrequently: true }); cx.drawImage(im, 0, 0, c.width, c.height);
+    var d = cx.getImageData(Math.min(c.width - 1, Math.round(x * 2)), Math.min(c.height - 1, Math.round(y * 2)), 1, 1).data; if (d[3] < 128) return; var hx = [d[0], d[1], d[2]].map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join('');
+    if (PAL.indexOf(hx) < 0) PAL.push(hx); S['c' + rol] = '#' + hx; pinta();
+  });
+  if (window.EyeDropper) { $('gotero').hidden = false; $('gotero').addEventListener('click', function () { new EyeDropper().open().then(function (r) { var hx = r.sRGBHex.replace('#', '').toLowerCase(); if (PAL.indexOf(hx) < 0) PAL.push(hx); S['c' + rol] = '#' + hx; pinta(); }).catch(function () {}); }); }
+  async function elegir(f) {
+    if (!f) return; error(''); DEJAR = false; AUTO = false; $('proc').hidden = false; $('vista').hidden = true;
+    try { aplicarLogo(await procesarArchivo(f)); } catch (e) { error((e && e.message || 'No pudimos procesar ese archivo.') + ' Si querés, lo hacemos por vos por WhatsApp.'); S.logo = ''; validar(); } finally { $('proc').hidden = true; }
+  }
+  var AUTO = false;
+  function cropOpt() { var v = function (id) { return (+$(id).value || 0) / 100; }; return { auto: AUTO, l: v('rcL'), r: v('rcR'), t: v('rcT'), b: v('rcB') }; }
+  async function rehacerLogo() {
+    $('proc').hidden = false; var g = { c1: S.c1, c2: S.c2, c3: S.c3, c4: S.c4, silC: S.silC, gr: S.gr, rol: rol };
+    try { aplicarLogo(await procesarArchivo(ULTIMO, DEJAR ? { sinPlaca: false, crop: cropOpt() } : {})); if (g.silC !== undefined) { S.c1 = g.c1; S.c2 = g.c2; S.c3 = g.c3; S.c4 = g.c4; S.silC = g.silC; S.gr = g.gr; rol = g.rol; pinta(); rehacer3d(); } return true; }
+    catch (e) { error('No pudimos rehacer el logo.'); return false; } finally { $('proc').hidden = true; }
+  }
+  $('dejarFondo').addEventListener('click', async function () { if (!ULTIMO) return; DEJAR = !DEJAR; AUTO = false; ['rcL', 'rcR', 'rcT', 'rcB'].forEach(function (id) { $(id).value = 0; }); if (!(await rehacerLogo())) DEJAR = !DEJAR; });
+  ['rcL', 'rcR', 'rcT', 'rcB'].forEach(function (id) { $(id).addEventListener('change', function () { if (ULTIMO && DEJAR) rehacerLogo(); }); });
+  $('rcAuto').addEventListener('click', function () { AUTO = true; ['rcL', 'rcR', 'rcT', 'rcB'].forEach(function (id) { $(id).value = 0; }); rehacerLogo(); });
+  $('rcRes').addEventListener('click', function () { AUTO = false; ['rcL', 'rcR', 'rcT', 'rcB'].forEach(function (id) { $(id).value = 0; }); rehacerLogo(); });
+  $('archivo').addEventListener('change', function (e) { elegir(e.target.files[0]); });
+  ['dragenter', 'dragover'].forEach(function (t) { $('sube').addEventListener(t, function (e) { e.preventDefault(); $('sube').classList.add('drag'); }); });
+  ['dragleave', 'drop'].forEach(function (t) { $('sube').addEventListener(t, function (e) { e.preventDefault(); $('sube').classList.remove('drag'); if (t === 'drop' && e.dataTransfer.files[0]) elegir(e.dataTransfer.files[0]); }); });
+  $('usaNombre').addEventListener('click', async function () { DEJAR = false;
+    var n = $('nombre').value.trim(); if (n.length < 2) { error('Escribí primero el nombre de tu negocio.'); $('nombre').focus(); return; }
+    $('proc').hidden = false; try { aplicarLogo(await logoDeNombre(n, '#8149bd')); } catch (e) { error('No pudimos armar el logo. Probá subiendo una imagen.'); } finally { $('proc').hidden = true; }
+  });
+  $('sig1').addEventListener('click', function () { mostrar(2); });
+
+  /* ── planes ── */
+  function dibujarPlanes() {
+    $('cfg').innerHTML = S.plan.map(function (p, i) { return '<div class="plan"' + (i ? '' : ' style="border:0;padding:0;margin:0"') + '><h3>Combo ' + (i + 1) + '</h3><div class="campo"><label for="pn' + i + '">Nombre</label><input id="pn' + i + '" type="text" maxlength="40" value="' + esc(p.nombre) + '"></div><div class="campo"><label for="pp' + i + '">Precio (el más bajo de la semana)</label><input id="pp' + i + '" type="number" inputmode="numeric" min="0" step="1000" value="' + p.precio + '"></div><div class="campo" style="margin:0"><label for="pd' + i + '">Qué incluye</label><textarea id="pd' + i + '" maxlength="300">' + esc(p.descripcion) + '</textarea></div></div>'; }).join('');
+  }
+  function elegirPlanes(v) { S.planes = v; $('opEj').classList.toggle('sel', v === 'ej'); $('opCf').classList.toggle('sel', v === 'cf'); $('cfg').hidden = v !== 'cf'; if (v === 'cf' && !S.plan.length) { S.plan = EJ.map(function (p) { return Object.assign({}, p); }); dibujarPlanes(); } }
+  document.querySelectorAll('input[name=pl]').forEach(function (r) { r.addEventListener('change', function () { elegirPlanes(r.value); }); });
+  function leerPlanes() { if (S.planes !== 'cf') return null; return S.plan.map(function (p, i) { return { nombre: ($('pn' + i).value || p.nombre).trim().slice(0, 40), precio: Math.max(0, parseInt($('pp' + i).value, 10) || p.precio), descripcion: ($('pd' + i).value || '').trim().slice(0, 300) }; }); }
+  $('sig2').addEventListener('click', function () { S.plan = leerPlanes() || S.plan; $('resLogo').src = S.logo; $('resNombre').textContent = $('nombre').value.trim(); $('resMail').textContent = $('email').value.trim(); $('resPlanes').textContent = S.planes === 'cf' ? 'Con tus planes' : 'Con planes de ejemplo'; mostrar(3); });
+  $('atras2').addEventListener('click', function () { mostrar(1); }); $('atras3').addEventListener('click', function () { mostrar(2); });
+
+  /* ── crear ── */
+  var BASE = null;   // planes del sitio base, para escalar los precios por horario cuando la persona cambia el precio
+  async function datosPlanes() {
+    var pl = leerPlanes() || (S.planes === 'cf' ? S.plan : null); if (!pl) return null;
+    if (!BASE) BASE = await (await fetch('../demo/datos-base.json?v=1')).json();
+    return { planes: pl.map(function (p, i) { var b = BASE.planes[i] || BASE.planes[BASE.planes.length - 1], k = b.precio ? p.precio / b.precio : 1, precios = {}; Object.keys(b.precios || {}).forEach(function (t) { precios[t] = Math.round(b.precios[t] * k / 1000) * 1000; }); return Object.assign({}, b, { nombre: p.nombre, descripcion: p.descripcion, precio: p.precio, sena: Math.round(p.precio * .3), precios: precios }); }) };
+  }
+  $('crear').addEventListener('click', async function () {
+    var b = $('crear'), e = $('errCrear'); e.hidden = true; b.disabled = true; b.innerHTML = '<span class="girando"></span> Armando tu weeb…';
+    try {
+      if (!CFG.fabrica) throw new Error('Esta función se está activando. Probá en un rato.');
+      var cuerpo = { action: 'demoCrear', salon: (window.__opSalon || ''), nombre: $('nombre').value.trim(), email: $('email').value.trim().toLowerCase(), whatsapp: $('wsp').value.replace(/\D/g, ''), color: S.c1.replace('#', ''), color2: S.c2.replace('#', ''), color3: S.c3.replace('#', ''), color4: S.c4.replace('#', ''), logo: S.logo, logo3d: S.logo3d, datos: await datosPlanes() };
+      var r = await fetch(CFG.fabrica, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(cuerpo) }), j;
+      try { j = await r.json(); } catch (x) { throw new Error('No hay conexión. Probá de nuevo.'); }
+      if (!j.ok) throw new Error(j.mensaje || 'No pudimos crear tu weeb. Probá de nuevo.');
+      var d = j.data, demo = Object.assign({ id: d.id, nombre: cuerpo.nombre, email: cuerpo.email, whatsapp: d.whatsapp || cuerpo.whatsapp, color: cuerpo.color, color2: cuerpo.color2, color3: cuerpo.color3, color4: cuerpo.color4, logo: cuerpo.logo, logo3d: cuerpo.logo3d, datos: cuerpo.datos }, {});
+      try { localStorage.setItem('tuweeb-demo-cfg-v1:' + d.id, JSON.stringify(demo)); localStorage.setItem('tuweeb-demo-id-v1', JSON.stringify({ id: d.id, t: Date.now() })); } catch (x) {}
+      var base = new URL('../', location.href); $('verSitio').href = base.href + '?d=' + d.id; $('verPanel').href = base.href + 'panel/?d=' + d.id; $('rMail').textContent = cuerpo.email; $('rLink').textContent = (base.href + d.id).replace(/^https?:\/\//, ''); mostrar(4); if (window.__opListo) window.__opListo(d.id);
+    } catch (x) { e.textContent = x.message; e.hidden = false; b.disabled = false; b.textContent = 'Crear mi weeb'; }
+  });
+  $('otro').addEventListener('click', function () { location.reload(); });
+
+  /* weebs que ya creó esta persona en este dispositivo: para volver a ver los links sin buscar el mail */
+  (function () {
+    var base = new URL('../', location.href).href, out = [];
+    try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k.indexOf('tuweeb-demo-cfg-v1:') === 0) { var d = JSON.parse(localStorage.getItem(k)); if (d && d.id && d.nombre) out.push(d); } } } catch (e) {}
+    if (!out.length) return;
+    $('misWeebs').hidden = false;
+    $('misWeebs').innerHTML = out.slice(0, 5).map(function (d) { var u = base + d.id; return '<div class="card"><div class="resumen">' + (d.logo ? '<img src="' + esc(d.logo) + '" alt="">' : '') + '<div><b>' + esc(d.nombre) + '</b><small>Ya lo creaste en este dispositivo</small></div></div><div class="fila" style="margin-top:14px"><a class="btn sm" href="' + esc(base + '?d=' + d.id) + '">Ver mi sitio</a><a class="btn sec sm" href="' + esc(base + 'panel/?d=' + d.id) + '">Mi panel</a></div><div class="datos" style="margin-top:14px"><div><span>Tu link</span><b>' + esc(u.replace(/^https?:\/\//, '')) + '</b></div><div><span>Usuario del panel</span><b>' + esc(d.email || '') + '</b></div><div style="border:0;padding:0"><span>Clave</span><b>demo1234</b></div></div></div>'; }).join('') + '<p class="ayuda" style="text-align:center;margin:-4px 0 14px">¿Querés otro? Completá los datos de abajo.</p>';
+  })();
+
+  /* ── modo operador (?op=1): carga un salón de la lista y prepara los mensajes de WhatsApp ── */
+  (function () {
+    var SPm = /[?&]s=([a-z0-9]{3,40})/.exec(location.search), OP = !!SPm;
+    if (!OP && /[?&]op=1/.test(location.search)) { location.replace('../admin/'); return; }   /* la lista vieja ya no se usa: ahora se arranca desde el admin */
+    try { localStorage.removeItem('tuweeb-op'); } catch (e) {}
+    if (!OP) return;
+    var SAL = [], ACT = null, ENV = {}, SIN = function (s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); };
+    try { ENV = JSON.parse(localStorage.getItem('tuweeb-op-env') || '{}') || {}; } catch (e) {}
+    function guardarEnv() { try { localStorage.setItem('tuweeb-op-env', JSON.stringify(ENV)); } catch (e) {} }
+    /* los enviados se guardan también en la fábrica, para verlos igual desde la compu y desde el celu */
+    function fab() { return CFG.fabrica ? Promise.resolve(CFG.fabrica) : fetch('config.json?v=1').then(function (r) { return r.json(); }).then(function (c) { CFG = c; return c.fabrica; }); }
+    function subir(ids) { if (!ids.length) return; fab().then(function (u) { return fetch(u, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'opMarcar', ids: ids }) }); }).then(function (r) { return r.json(); }).then(function (j) { if (j && j.ok) { Object.keys(j.data).forEach(function (k) { ENV[k] = 1; }); guardarEnv(); pintar(); } }).catch(function () {}); }
+    function sincronizar() { fab().then(function (u) { return fetch(u + '?action=enviados'); }).then(function (r) { return r.json(); }).then(function (j) { if (!j || !j.ok) return; var srv = j.data || {}; Object.keys(srv).forEach(function (k) { ENV[k] = 1; }); guardarEnv(); pintar(); var falta = Object.keys(ENV).filter(function (k) { return !srv[k]; }); subir(falta); }).catch(function () {}); }
+    function estado(t, mal) { var s = $('opEstado'); s.textContent = t; s.style.color = mal ? '#ff9d9d' : ''; }
+    $('opBox').hidden = false;
+    function pintar() {
+      var q = SIN($('opQ').value).trim(), r = SAL.filter(function (s) { return !q || SIN(s.n + ' ' + s.c + ' ' + s.p).indexOf(q) >= 0; });
+      $('opCuenta').textContent = '(' + r.length + ' de ' + SAL.length + ')';
+      $('opLista').innerHTML = r.slice(0, 40).map(function (s) { return '<button type="button" class="btn sec sm" data-i="' + esc(s.i) + '" style="justify-content:space-between;text-align:left;gap:8px;' + (ENV[s.i] ? 'opacity:.55' : '') + '"><span>' + esc(s.n) + ' <small style="opacity:.75">· ' + esc(s.c) + '</small></span><span>' + (ENV[s.i] ? 'Enviado ✓' : '') + '</span></button>'; }).join('');
+    }
+    var SP = (/[?&]s=([a-z0-9]{3,40})/.exec(location.search) || [])[1];
+    if (SP) {   /* viene desde la ficha del admin: se carga ese salón y no hace falta la lista */
+      $('opBox').querySelector('label').textContent = 'Demo para un salón de tu planilla'; $('opQ').hidden = true; $('opLista').hidden = true; estado('Buscando el salón…');
+      fab().then(function (u) { return fetch(u + '?action=salon&id=' + SP); }).then(function (r) { return r.json(); }).then(function (j) { if (!j || !j.ok) throw new Error(j && j.mensaje || 'No encontré ese salón.'); cargar(j.data); sincronizar(); }).catch(function (x) { estado((x && x.message || 'No pude cargar el salón.') + ' Volvé al admin y probá de nuevo.', true); });
+    } else fetch('salones.json?v=1').then(function (r) { return r.json(); }).then(function (d) { SAL = d; pintar(); sincronizar(); }).catch(function () { estado('No pude cargar la lista de salones.', true); });
+    $('opQ').addEventListener('input', pintar);
+    $('opLista').addEventListener('click', function (e) { var b = e.target.closest('button[data-i]'); if (!b) return; var s = SAL.filter(function (x) { return x.i === b.getAttribute('data-i'); })[0]; if (s) cargar(s); });
+    function poner(id, v) { var el = $(id); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); }
+    async function cargar(s) {
+      ACT = s; window.__opSalon = s.i; error(''); poner('nombre', s.n); poner('email', s.i + '@salondefiestas.ar'); poner('wsp', s.w); estado('Bajando el logo de ' + s.n + '…');
+      $('proc').hidden = false; $('vista').hidden = true; S.logo = ''; validar();
+      try {
+        if (!CFG.fabrica) { var c = await (await fetch('config.json?v=1')).json(); CFG = c; }
+        var bl;
+        {
+          var j = await (await fetch(CFG.fabrica + '?action=logoUrl&u=' + encodeURIComponent(s.l))).json();
+          if (!j.ok) throw new Error(j.mensaje || 'No se pudo bajar el logo.');
+          bl = await (await fetch(j.data.dataUrl)).blob();
+        }
+        await elegir(new File([bl], s.i + '-logo.' + (bl.type.split('/')[1] || 'png'), { type: bl.type }));
+        if (!S.logo) throw new Error('No pude armar el logo con esa imagen.');
+        estado('Listo: ' + s.n + '. Revisá el logo y los colores, y tocá Seguir.');
+        $('vista').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (x) { $('proc').hidden = true; estado('Se cargaron los datos, pero el logo no: ' + (x && x.message || 'error') + ' Subilo a mano.', true); }
+    }
+    /* paso 4: mensajes de WhatsApp */
+    var MSG1 = function (id) { return 'Sorprendé a tus clientes y obtené más reservas con esta web interactiva en 3D que hicimos con tu logo. Mirá ---> https://demo.tuweeb.com/?d=' + id + '\n\nPodes verla desde el celu. Si te gusta, la activás por $149.000, pago único y sin cuotas. El primer año viene todo incluido \u{1F60A}\n\nQueres que cambiemos algo para visualizarlo mejor? Colores, Logo en mejor calidad? \u{1F603} Estamos a tu disposición. \u{1F60C}'; };
+    var MSG2 = 'Tu respuesta automática en whatsapp podría quedar así! Te ahorras varias horas por día contestando.. \u{1F60C}';
+    function tel() { var t = $('wsp').value.replace(/\D/g, ''); if (t && !/^54/.test(t)) t = '549' + t.replace(/^0+/, '').replace(/^(\d{2,4})15/, '$1'); return t; }
+    var MOVIL = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+    /* en el celu se abre la app directo (whatsapp://): el link corto de WhatsApp rompe los emojis */
+    function wa(t) { return (MOVIL ? 'whatsapp://send?phone=' + tel() + '&text=' : 'https://web.whatsapp.com/send?phone=' + tel() + '&text=') + encodeURIComponent(t); }
+    window.__opListo = function (id) {
+      var p4 = $('p4'); p4.insertBefore($('opEnv'), p4.querySelector('.acciones')); $('opEnv').hidden = false; $('opEnvQuien').textContent = ($('nombre').value.trim() || 'Salón') + ' · ' + (tel() || 'sin WhatsApp');
+      $('opMsg1').href = tel() ? wa(MSG1(id)) : '#';
+      (function () { var cola = []; try { cola = JSON.parse(sessionStorage.getItem('tw-cola') || '[]'); } catch (e) {} var i = ACT ? cola.indexOf(ACT.i) : -1, sig = cola.filter(function (x, k) { return k > i && (!ACT || x !== ACT.i); })[0]; if (sig) { $('opSig').href = '?op=1&s=' + sig; $('opSig').textContent = 'Siguiente salón →'; } else { $('opSig').href = '../admin/'; $('opSig').textContent = 'No quedan más: volver a la lista'; } })();
+      $('opMsg1').onclick = function (e) { if (!tel()) { e.preventDefault(); $('opAviso').textContent = 'Este salón no tiene WhatsApp cargado.'; return; } if (ACT) { ENV[ACT.i] = 1; guardarEnv(); subir([ACT.i]); } if (MOVIL) { e.preventDefault(); location.href = wa(MSG1(id)); return; } $('opAviso').textContent = 'Se abrió el chat con el primer mensaje. Cuando lo mandes, tocá el botón 2.'; };
+      $('opMsg2').onclick = async function () {
+        if (!tel()) { $('opAviso').textContent = 'Este salón no tiene WhatsApp cargado.'; return; }
+        var w = window.open('about:blank', '_blank'), av = $('opAviso');
+        try {
+          var png = (async function () { var b = await (await fetch('respuesta-automatica.jpg?v=1')).blob(), bm = await createImageBitmap(b), c = document.createElement('canvas'); c.width = bm.width; c.height = bm.height; c.getContext('2d').drawImage(bm, 0, 0); return await new Promise(function (ok) { c.toBlob(ok, 'image/png'); }); })();
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+          av.textContent = 'Imagen copiada. En el chat, tocá el cuadro de texto y pegá (Ctrl+V, o mantené apretado → Pegar), y enviá.';
+        } catch (x) {
+          try { var f = new File([await (await fetch('respuesta-automatica.jpg?v=1')).blob()], 'respuesta-automatica.jpg', { type: 'image/jpeg' }); if (navigator.canShare && navigator.canShare({ files: [f] })) { if (w) w.close(); await navigator.share({ files: [f], text: MSG2 }); return; } } catch (y) {}
+          av.innerHTML = 'No pude copiar la imagen sola. <a href="respuesta-automatica.jpg" download style="color:#fff;font-weight:800">Bajala acá</a> y adjuntala en el chat.';
+        }
+        if (MOVIL) { if (w) w.close(); location.href = wa(MSG2); } else if (w) w.location.href = wa(MSG2); else av.textContent += ' (El navegador bloqueó la ventana: permití ventanas emergentes.)';
+      };
+    };
+  })();
+  validar();
+})();
+</script>
+</body>
+</html>
