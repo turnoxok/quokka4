@@ -182,7 +182,7 @@ window.__planes={clave:clave,cache:c,foto:T.listo.then(function(){return T.demo&
   <div class="saltabs" id="salTabs" role="group" aria-label="Elegí el salón" hidden></div>
   <div class="plans" id="planes" style="margin-top:26px" aria-busy="true"><div class="plan sk"><i></i><i></i><i></i><i></i></div><div class="plan sk"><i></i><i></i><i></i><i></i></div><div class="plan sk"><i></i><i></i><i></i><i></i></div></div>
 
-  <section class="blk" aria-labelledby="agr">
+  <section class="blk" id="canjeSec" aria-labelledby="agr">
     <h2 id="pgCanjeTitulo"></h2>
     <p class="sub" id="pgCanjeTexto"></p>
     <div class="up" id="upgrade"></div>
@@ -259,6 +259,7 @@ function foto(u){return /^https?:/i.test(u)?u:'./'+String(u).replace(/^\.\//,'')
 function armar(c){
   txt('pgEtiqueta',c.pgEtiqueta);txt('pgBajada',c.pgBajada);if(c.pgTitulo){$('pgTitulo').innerHTML=resaltar(c.pgTitulo);document.title=c.pgEtiqueta?c.pgEtiqueta+' — '+(c.nombre||''):document.title}
   ['pgCanjeTitulo','pgCanjeTexto','pgIncluyeTitulo','pgIncluyeSub','pgAdicionalesTitulo','pgPasosTitulo','pgPasosSub','pgFaqTitulo','pgCtaTexto','pgCtaBoton'].forEach(function(k){txt(k,c[k])});
+  if($('canjeSec'))$('canjeSec').hidden=c.pgCanjeTitulo==='';   /* título vacío = sin esa sección */
   var nota=[c.pgNota,[c.nombre,c.direccion].filter(Boolean).join(' · ')].filter(Boolean).join(' ');txt('pgNota',nota);
   var tel=String(c.whatsapp||'').replace(/\D/g,''),w=$('pgCtaWhatsapp');if(tel){w.href='https://wa.me/'+tel+'?text='+encodeURIComponent('Hola! Quiero consultar por un festejo en '+(c.nombre||'el salón')+'.');w.textContent=c.pgCtaWhatsapp||'Escribinos por WhatsApp';w.hidden=false}else w.hidden=true;
   /* bloques editables */
