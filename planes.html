@@ -46,8 +46,12 @@ window.__planes={clave:clave,cache:c,foto:T.listo.then(function(){return T.demo&
   .plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:20px;align-items:stretch}
   .saltabs{display:flex;gap:10px;flex-wrap:wrap;margin-top:26px}
   .saltabs[hidden]{display:none}
-  .saltabs button{font:inherit;font-weight:700;color:var(--fg);background:rgba(235,235,239,.08);border:1.5px solid rgba(235,235,239,.22);border-radius:999px;padding:11px 18px;cursor:pointer;min-height:44px}
-  .saltabs button[aria-pressed=true]{background:var(--pc,var(--ac));color:var(--pt,#1a1a1a);border-color:var(--pc,var(--ac))}
+  .saltabs{gap:12px}
+  .saltabs button{flex:1 1 220px;font:inherit;font-weight:800;font-size:1.02rem;color:#fff;background:var(--bk,rgba(20,24,40,.55));border:2px solid var(--bc,rgba(235,235,239,.35));border-radius:16px;padding:14px 18px;cursor:pointer;min-height:58px;box-shadow:0 6px 18px -8px rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;gap:10px;text-align:center;transition:transform .15s,box-shadow .15s}
+  .saltabs button:active{transform:scale(.97)}
+  .saltabs button::before{content:"";width:20px;height:20px;border-radius:50%;border:2px solid #fff;flex:none;box-sizing:border-box}
+  .saltabs button[aria-pressed=true]::before{background:#fff radial-gradient(circle,var(--pc,var(--ac)) 0 4px,transparent 5px)}
+  .saltabs button[aria-pressed=true]{background:var(--bk2,var(--pc,var(--ac)));color:var(--pt,#fff);border-color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.25),0 10px 24px -8px rgba(0,0,0,.6)}
   .saltabs+.plans{margin-top:16px!important}
   .plan{position:relative;display:flex;flex-direction:column;background:rgba(235,235,239,.08);border:1.5px solid rgba(235,235,239,.16);border-radius:26px;padding:26px 22px 22px}
   .plan{--pc:var(--ac);--pt:var(--t-1e3a19,#1e3a19);background:color-mix(in srgb,var(--pc) 16%,rgba(0,0,0,.1));border-color:color-mix(in srgb,var(--pc) 55%,transparent)}
@@ -277,7 +281,7 @@ function armar(c){
   if(sals.length>1){var sid=window.__salSel&&sals.some(function(x){return x.id===window.__salSel})?window.__salSel:sals[0].id;
     planes=planes.filter(function(p){return !p.salonId||p.salonId===sid});turnos=turnos.filter(function(t){return t.salonId===sid});
     var PL=paleta();if(PL){tabs.style.setProperty('--pc',PL[0]);tabs.style.setProperty('--pt',lum(PL[0])>.6?'#1a1a1a':'#fff')}
-    tabs.innerHTML=sals.map(function(x){return '<button type="button" data-s="'+esc(x.id)+'" aria-pressed="'+(x.id===sid)+'">'+esc(x.nombre)+'</button>'}).join('');
+    tabs.innerHTML=sals.map(function(x){var sv=/selva/i.test(x.nombre),k=sv?['#0b4a24','#03ad55','#027a3c']:['#2c1a73','#8b6df0','#4b2aa8'];return '<button type="button" data-s="'+esc(x.id)+'" aria-pressed="'+(x.id===sid)+'" style="--bk:'+k[0]+';--bc:'+k[1]+';--bk2:'+k[2]+';--pc:'+k[2]+';--pt:#fff">'+esc(x.nombre)+'</button>'}).join('');
     tabs.onclick=function(e){var b=e.target.closest('button[data-s]');if(b&&b.getAttribute('aria-pressed')!=='true'){window.__salSel=b.getAttribute('data-s');armar(c)}};tabs.hidden=false}else{tabs.hidden=true;tabs.innerHTML=''}
   if(!planes.length){$('planes').innerHTML='<p class="cargando">Los planes se publican muy pronto. <a href="./reservar/">Ver disponibilidad</a></p>';$('upgrade').innerHTML='';$('promoSec').hidden=true;return}
   var pr=function(p,t){return p.precios&&p.precios[t.id]!=null?Number(p.precios[t.id]):p.precio};
