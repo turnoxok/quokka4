@@ -423,6 +423,12 @@ t('comprobante: lo sube la familia o la dueña, se ve en la reserva y la imagen 
   a.adm('admin.juegoPago', { id: r.id, metodo: 'transferencia' }); a.setNow(NOW + 8 * 864e5); a.run('vencer_()');
   const d3 = a.adm('admin.juegoReserva', { id: r.id }).data; assert.equal(d3.comprobante.borrado, true); assert.equal(d3.reserva.pagado, 60000);
 });
+t('con comprobante subido la mesa queda guardada sin tiempo hasta que la dueña apruebe o rechace', () => {
+  const a = nuevo(); const [, , s] = conJuego(a, { cupo: 1 }); const r = a.post(rj(s)).data;
+  const c = a.post({ action: 'comprobanteJuego', id: r.id, nombre: 't.png', tipo: 'image/png', datos: png64j }).data; assert.equal(c.estado, 'pendiente'); assert(!c.venceEn);
+  a.setNow(NOW + 3 * 864e5); a.run('vencer_()'); assert.equal(a.run('leer_("JuegoReservas")[0].estado'), 'pendiente'); assert.equal(a.get({ action: 'juego' }).data.slots[0].libres, 0);
+  assert.equal(a.adm('admin.juegoCancelar', { id: r.id }).ok, true); assert.equal(a.get({ action: 'juego' }).data.slots[0].libres, 1);
+});
 t('desbloquear: con familias anotadas no se puede; sin familias se saca hs de juego', () => {
   const a = nuevo(); const [t1, , s] = conJuego(a); const bl = a.run('leer_("Bloqueos")[0].id'), r = a.post(rj(s)).data;
   assert.equal(a.adm('admin.desbloquear', { id: bl }).error, 'CON_ANOTADOS'); assert(a.adm('admin.juegoCancelar', { id: r.id }).ok);

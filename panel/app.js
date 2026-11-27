@@ -317,7 +317,7 @@ async function juegoDetalle(id) {
     viva ? [h('h3', { class: 'sec' }, 'Pago'), pf] : '',
     h('h3', { class: 'sec' }, 'Acciones'),
     h('div', { class: 'row' }, wa ? h('a', { class: 'btn soft', href: wa, target: '_blank', rel: 'noopener' }, 'WhatsApp') : '',
-      viva ? h('button', { class: 'btn bad', onclick: e => { if (!confirm('¿Cancelar esta reserva? Se libera la mesa.')) return; accion(e.target, async () => { await api('admin.juegoCancelar', { id }); toast('Reserva cancelada', 'ok'); await hecho(); }); } }, 'Cancelar reserva') : ''))); 
+      viva ? h('button', { class: 'btn bad', onclick: e => { if (!confirm('¿Cancelar esta reserva? Se libera la mesa para otra familia.')) return; accion(e.target, async () => { await api('admin.juegoCancelar', { id }); toast('Reserva cancelada', 'ok'); await hecho(); }); } }, (r.estado === 'pendiente' && c ? 'Rechazar y liberar la mesa' : 'Cancelar reserva')) : ''))); 
 }
 
 async function detalle(id) {

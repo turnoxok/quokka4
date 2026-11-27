@@ -90,7 +90,7 @@ function resultado(r) {
   const btnSub = h('button', { class: 'btn lila', style: 'margin-top:.8rem', onclick: () => inp.click() }, c ? 'Cambiar comprobante' : 'Subir comprobante');
   inp.addEventListener('change', async () => { const f = inp.files && inp.files[0]; if (!f) return; btnSub.disabled = true; btnSub.textContent = 'Enviando…'; msg.textContent = 'Subiendo el archivo, no cierres esta página.';
     try { const a = await leerArchivo(f); resultado(await llamar('comprobanteJuego', { id: r.id, ...a }, true)); } catch (e) { btnSub.disabled = false; btnSub.textContent = c ? 'Cambiar comprobante' : 'Subir comprobante'; msg.className = 'err'; msg.textContent = e.message + ' Podés mandarlo por WhatsApp.'; inp.value = ''; } });
-  const reloj = h('div', { class: 'reloj' });
+  const reloj = h('div', { class: 'reloj' }, r.venceEn ? '' : 'Recibimos tu comprobante. Tu mesa queda guardada hasta que el salón confirme el pago.');
   pagina(h('div', { class: 'card' }, h('div', { class: 'ok' }, ok ? '🎉' : pend ? '⏳' : '😕'),
     h('h2', { class: 'centro', style: 'margin:.2rem 0' }, ok ? '¡Mesa confirmada!' : pend ? `¡Casi listo, ${r.nombre}!` : r.estado === 'vencida' ? 'Se liberó la mesa' : 'Reserva cancelada'),
     h('p', { class: 'centro', style: 'margin:0;font-weight:700' }, `${flarga(r.fecha)} · ${r.inicio} a ${r.fin}` + (r.salon ? ' · ' + r.salon : '')),

@@ -1077,7 +1077,7 @@ function juegoGuardarComp_(id, p, origen) {
   var a = juegoArchivo_(p), it = DriveApp.getFoldersByName(JUEGO_CARPETA), c = it.hasNext() ? it.next() : DriveApp.createFolder(JUEGO_CARPETA), f = c.createFile(Utilities.newBlob(a.bytes, a.tipo, 'Juego ' + r.id + ' · ' + r.nombre + '.' + a.ext));
   try { f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) { log_('sistema', 'comp_share_error', e.message); }
   compBorrarArchivo_(r.compId);
-  actualizar_('JuegoReservas', r._row, { compId: f.getId(), compUrl: f.getUrl(), compNombre: a.nombre, compTipo: a.ext, compFecha: new Date(ahora_()).toISOString(), compOrigen: origen, compBorrarEn: new Date(ahora_() + JUEGO_DIAS_COMP * 864e5).toISOString(), actualizada: new Date(ahora_()).toISOString() });
+  actualizar_('JuegoReservas', r._row, { compId: f.getId(), compUrl: f.getUrl(), compNombre: a.nombre, compTipo: a.ext, compFecha: new Date(ahora_()).toISOString(), compOrigen: origen, venceEn: '', compBorrarEn: new Date(ahora_() + JUEGO_DIAS_COMP * 864e5).toISOString(), actualizada: new Date(ahora_()).toISOString() });
   invalidar_(); return id;
 }
 function comprobanteJuego_(p) {
@@ -1088,7 +1088,7 @@ function comprobanteJuego_(p) {
     return juegoPublica_(r);
   });
 }
-/** Vence las que no pagaron en 15 minutos (libera la mesa y saca el pendiente de la caja) y borra imágenes de comprobantes con más de 7 días. */
+/** Vence las que no pagaron en 15 minutos (las que ya tienen comprobante no vencen: las resuelve la dueña) (libera la mesa y saca el pendiente de la caja) y borra imágenes de comprobantes con más de 7 días. */
 function juegoMantenimiento_() {
   var n = 0;
   leerOpc_('JuegoReservas').forEach(function (r) {
