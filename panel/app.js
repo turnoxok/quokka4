@@ -652,6 +652,14 @@ async function verComprobante(btn, p, n) {
     document.body.append(ov);
   } catch (e) { toast(e.message, 'err'); } finally { btn.disabled = false; btn.textContent = t; }
 }
+/* Lo acordado en el admin (total de la venta) y lo cobrado: se muestra aunque la web no tenga productos cargados */
+function bloqueVenta(ped) {
+  const v = ped.venta; if (!v || !(v.acordado > 0)) return [];
+  const pagado = (ped.pagos || []).filter(p => p.estado === 'confirmado').reduce((t, p) => t + (Number(p.monto) || 0), 0), falta = Math.max(0, v.acordado - pagado), pct = Math.min(100, Math.round(pagado / v.acordado * 100));
+  return [h('div', { class: 'money', style: '--n:3' }, h('div', null, h('b', null, money(v.acordado)), h('span', null, 'Total')), h('div', null, h('b', null, money(pagado)), h('span', null, 'Pagado')), h('div', null, h('b', { class: falta > 0 ? 'neg' : 'pos' }, money(falta)), h('span', null, 'Falta'))),
+    h('div', { class: 'progress' }, h('i', { style: 'width:' + pct + '%' })),
+    v.resumen ? h('p', { class: 'small', style: 'margin:.6rem 0 0' }, v.resumen) : ''];
+}
 function bloquePagos(ped) {
   return ped.pagos.length ? [h('h3', { class: 'sec' }, 'Tus pagos'), h('div', { class: 'list' }, ped.pagos.slice().reverse().map(p => {
     const ch = { confirmado: ['Confirmado', 'confirmada'], revision: ['En revisión', 'pendiente'], rechazado: ['Rechazado', 'cancelada'] }[p.estado] || [p.estado, ''];
@@ -692,7 +700,7 @@ async function vWebDemo(main) {
   if (ped.items.length) return pantallaPedido(main, ped);
   if (TEMA.cliente) return main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Mi web'), h('span', { class: 'chip confirmada' }, 'Activa')),
     h('p', { class: 'muted small', style: 'margin:.4rem 0 .8rem' }, ped.pagos.length || (ped.venc || []).length ? 'Tu sitio está publicado y funcionando. Acá ves los pagos y vencimientos que cargó tuweeb.' : 'Tu sitio está publicado y funcionando. Acá van a aparecer tus pagos y vencimientos.'), avisoPersonalizada(ped),
-    ...bloqueVenc(ped), ...bloquePagos(ped), ...(ped.dominio ? [h('p', { class: 'small', style: 'margin:.6rem 0' }, 'Tu dominio: ', h('b', null, ped.dominio))] : []),
+    ...bloqueVenta(ped), ...bloqueVenc(ped), ...bloquePagos(ped), ...(ped.dominio ? [h('p', { class: 'small', style: 'margin:.6rem 0' }, 'Tu dominio: ', h('b', null, ped.dominio))] : []),
     h('a', { class: 'btn line block', style: 'margin-top:1rem;text-align:center', target: '_blank', rel: 'noopener', href: 'https://wa.me/' + WA_TUWEEB + '?text=' + encodeURIComponent('Hola! Tengo una consulta sobre mi web.') }, 'Escribir a tuweeb'));
   main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Mi web')),
     h('p', { class: 'muted small', style: 'margin-bottom:.8rem' }, 'Elegí tu plan. Pagás por transferencia, subís el comprobante acá y seguís todo el proceso desde esta pantalla.'),
