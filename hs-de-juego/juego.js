@@ -24,7 +24,7 @@ function pagina(...c) {
   const logo = (window.TEMA && TEMA.logo) || (S.pub && S.pub.logoUrl), emb = window.parent !== window;
   $('#app').replaceChildren(
     emb ? h('button', { class: 'weeb-back', onclick: () => parent.postMessage('weeb-cerrar', location.origin) }, '← Volver al sitio') : h('a', { class: 'weeb-back', href: S.cfg.volver || '../' }, '← Volver al sitio'),
-    h('div', { class: 'wrap' }, logo ? h('div', { class: 'brand', style: 'margin-top:34px' }, h('img', { src: logo, alt: S.pub ? S.pub.nombre : '', onerror: e => e.target.remove() })) : h('div', { style: 'height:34px' }),
+    h('div', { class: 'wrap' }, h('img', { class: 'hero', src: './banner.webp', alt: 'Quokka · hs de juego', width: 1400, height: 462, onerror: e => { e.target.remove(); const bl = document.querySelector('.brand'); if (bl) bl.hidden = false; } }), logo ? h('div', { class: 'brand', hidden: true }, h('img', { src: logo, alt: S.pub ? S.pub.nombre : '', onerror: e => e.target.remove() })) : '',
       h('div', { class: 'eyebrow' }, 'hs de juego'), h('h1', null, 'Elegí tu horario'), h('p', { class: 'lead' }, 'Reservá una mesa y que los chicos jueguen todo el turno. Los adultos no pagan.'), ...c)); window.scrollTo(0, 0);
 }
 

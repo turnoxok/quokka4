@@ -65,3 +65,40 @@ input.t::placeholder{color:rgba(250,255,249,.5)}input.t:focus{outline:none;borde
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 .weeb-back{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:12px;z-index:200;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 15px;border:0;border-radius:999px;background:rgba(var(--t-1e3a19-rgb,30,58,25),.82);color:#fff;font:600 .85rem 'Montserrat',system-ui,sans-serif;text-decoration:none;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}
 .weeb-back:active{transform:scale(.96)}
+
+/* ---- Página blanca: los flyers (de promos, etc.) tienen fondo blanco y tienen que fundirse con la página ---- */
+:root{--bg:#fff;--fg:#1b1440;--ac:#4b2aa8;--yl:#4b2aa8;--pt:#fff;--off:#4b2aa8;--linea:#e6e0f5;--suave:#faf8ff;--tx2:#5b5675}
+html,body{background:#fff;color:var(--fg)}
+body:before,body:after{display:none}
+.hero{display:block;width:100%;height:auto;border-radius:24px;margin:34px 0 22px;box-shadow:0 18px 40px -26px rgba(75,42,168,.55);animation:entra .6s both}
+.eyebrow{background:#efe9ff;color:#4b2aa8}
+.lead{opacity:1;color:var(--tx2)}
+.dia{color:#1b1440}
+.plan{background:#fff;border:1.5px solid var(--linea);box-shadow:0 16px 38px -24px rgba(75,42,168,.5);transition:transform .25s cubic-bezier(.2,.7,.2,1),box-shadow .25s}
+@media (hover:hover){.plan:hover{transform:translateY(-4px);box-shadow:0 22px 44px -22px rgba(75,42,168,.55)}}
+.badge{background:color-mix(in srgb,var(--pc) 24%,#fff);color:color-mix(in srgb,var(--pc) 45%,#000);border:1.5px solid color-mix(in srgb,var(--pc) 60%,#fff)}
+.plan h2{color:#1b1440}
+.for{opacity:1;color:var(--tx2);font-weight:600}
+.flyer{max-height:none;object-fit:contain;background:#fff;border:1px solid var(--linea)}
+.barra{background:#ece8f7}
+.quedan{color:#1b1440}
+.go{background:#fff;border:2px solid var(--pc,var(--ac));color:color-mix(in srgb,var(--pc,var(--ac)) 60%,#000)}
+.go:hover{background:#f6f2ff}
+.go.on,.plan .go.on{background:color-mix(in srgb,var(--pc,var(--ac)) 62%,#1b1440);border-color:transparent;color:#fff;box-shadow:0 14px 26px -14px color-mix(in srgb,var(--pc,var(--ac)) 70%,#000)}
+.go.on:hover{filter:brightness(1.08)}
+.panel{background:#fff;border:1.5px solid var(--linea);box-shadow:0 18px 40px -26px rgba(75,42,168,.5)}
+input.t{background:var(--suave);border:1.5px solid #d9d2ee;color:#1b1440}
+input.t::placeholder{color:#8a84a6}input.t:focus{border-color:#4b2aa8;box-shadow:0 0 0 3px rgba(75,42,168,.22)}
+.step{background:var(--suave);border-color:var(--linea)}
+.step .l small{color:var(--tx2);opacity:1}
+.step button{border-color:#4b2aa8;background:#fff;color:#4b2aa8}.step button:active{background:#4b2aa8;color:#fff}
+.total{background:#f3effd}.total b{color:#4b2aa8}
+.codigo{background:#f3effd;border-color:#b9a8ee;color:#4b2aa8}
+.copy{border-bottom-color:var(--linea)}.copy span{opacity:1;color:var(--tx2)}
+.copy button{border-color:#4b2aa8;background:#fff;color:#4b2aa8}
+.reloj b{color:#4b2aa8}
+.sello{background:#4b2aa8 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5.5 10.5l3 3 6-6.5' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/62% no-repeat}
+.sello.espera{background:#efe9ff;border-color:#4b2aa8}.sello.espera:after{border-color:#4b2aa8;border-top-color:transparent}
+.mini{opacity:1;color:var(--tx2)}
+.link,.volver{color:#4b2aa8;opacity:1}
+.weeb-back{background:rgba(27,20,64,.9)}
