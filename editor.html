@@ -6252,6 +6252,7 @@ const RAIL_ICONS = {
   mapa: '&lt;path d="M20 10c0 5-5.5 10.2-7.4 11.8a1 1 0 0 1-1.2 0C9.5 20.2 4 15 4 10a8 8 0 0 1 16 0"/&gt;&lt;circle cx="12" cy="10" r="3"/&gt;',
   chat: '&lt;path d="M3 21l1.7-4.9A9 9 0 1 1 8 19.4z"/&gt;&lt;path d="M9.2 8.9c.2 2.4 2.9 5.1 5.9 5.9l1.3-1.4-2.1-1.1-1 .8a4.7 4.7 0 0 1-2-2l.8-1-1.1-2.1z"/&gt;',
   casa: '&lt;path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/&gt;&lt;path d="M3 10a2 2 0 0 1 .7-1.5l7-6a2 2 0 0 1 2.6 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/&gt;',
+  reloj: '&lt;circle cx="12" cy="12" r="9"/&gt;&lt;path d="M12 7v5l3.2 2"/&gt;',
   estrella: '&lt;path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9 6.8 19.7l1-5.9L3.5 9.7l5.9-.8z"/&gt;',
   regalo: '&lt;rect x="3.5" y="9" width="17" height="11.5" rx="2"/&gt;&lt;path d="M3.5 13h17M12 9v11.5"/&gt;&lt;path d="M12 9c-1-3.6-5-4.6-5-2s3.2 2 5 2zM12 9c1-3.6 5-4.6 5-2s-3.2 2-5 2z"/&gt;',
   corazon: '&lt;path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.6 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z"/&gt;',
@@ -10220,6 +10221,19 @@ const BALLOON_COLORS = ["#FFB719", "#FF6A00", "#CB000F", "#A60064", "#0071CE"];
 const CONFETTI_COLORS = ["#FFB719", "#FF6A00", "#CB000F", "#A60064", "#9379D3", "#709749", "#0071CE"];
 const CONFETTI_DEFAULTS = { cfFrom: "", cfTo: "", cfCount: 260, cfSize: 0.2, cfPos: [0, 5, -10], cfRotY: 0, cfW: 10, cfH: 4, cfFloor: 0, cfColors: CONFETTI_COLORS };
 const DEFAULT_MENU = MENU_DEFAULTS;
+/* Botones que el sitio de Quokka siempre tiene en la barra: si el proyecto guardado no los trae, se agregan al abrirlo (así publicar desde el editor no los saca). */
+const BOTONES_FIJOS = [{ label: "hs de juego", type: "url", href: "./hs-de-juego/", newTab: false, icon: "reloj", ask: "¿Ver los horarios de hs de juego?", despuesDe: "./planes.html" }];
+const botonesFijos = (items) => {
+  const a = (items || []).slice();
+  BOTONES_FIJOS.forEach((b) => {
+    if (a.some((it) => it && it.href === b.href)) return;
+    const { despuesDe, ...nuevo } = b;
+    const i = a.findIndex((it) => it && it.href === despuesDe);
+    a.splice(i >= 0 ? i + 1 : a.length, 0, nuevo);
+  });
+  return a;
+};
+
 function generateExtrasCode(cursor, progressBar, backTop, menu, stageProgress, fab, music) {
   const c = { ...DEFAULT_CURSOR, ...cursor }, p = { ...DEFAULT_PROGRESS_BAR, ...progressBar }, b = { ...DEFAULT_BACKTOP, ...backTop };
   const m0 = { ...DEFAULT_MENU, ...(menu || {}) };
@@ -13574,7 +13588,7 @@ function App() {
     setBackTop({ ...DEFAULT_BACKTOP, ...(p.backTop || {}) });
     setMusic({ ...DEFAULT_MUSIC, ...(p.music || {}) });
     setFab({ ...DEFAULT_FAB, ...(p.fab || {}) });
-    setMenu({ ...DEFAULT_MENU, ...(p.menu || {}), items: (p.menu && p.menu.items) || DEFAULT_MENU.items });
+    setMenu({ ...DEFAULT_MENU, ...(p.menu || {}), items: botonesFijos((p.menu && p.menu.items) || DEFAULT_MENU.items) });
     setBrandColorsState(Array.isArray(p.brandColors) && p.brandColors.length ? p.brandColors : DEFAULT_BRAND);
     setSections(Array.isArray(p.sections) && p.sections.length ? p.sections : DEFAULT_SECTIONS);
     setSite2d({ ...DEFAULT_SITE2D, ...(p.site2d || {}) });
