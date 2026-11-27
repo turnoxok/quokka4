@@ -52,7 +52,7 @@ window.__planes={clave:clave,cache:c,foto:T.listo.then(function(){return T.demo&
   .saltabs button::before{content:"";width:20px;height:20px;border-radius:50%;border:2px solid #fff;flex:none;box-sizing:border-box}
   .saltabs button[aria-pressed=true]::before{background:#fff radial-gradient(circle,var(--pc,var(--ac)) 0 4px,transparent 5px)}
   .saltabs button[aria-pressed=true]{background:var(--bk2,var(--pc,var(--ac)));color:var(--pt,#fff);border-color:#fff;box-shadow:0 0 0 3px rgba(255,255,255,.25),0 10px 24px -8px rgba(0,0,0,.6)}
-  .saltabs+.plans{margin-top:16px!important}
+  .saltabs+.plans,.salhd+.plans{margin-top:16px!important}
   .plan{position:relative;display:flex;flex-direction:column;background:rgba(235,235,239,.08);border:1.5px solid rgba(235,235,239,.16);border-radius:26px;padding:26px 22px 22px}
   .plan{--pc:var(--ac);--pt:var(--t-1e3a19,#1e3a19);background:color-mix(in srgb,var(--pc) 16%,rgba(0,0,0,.1));border-color:color-mix(in srgb,var(--pc) 55%,transparent)}
   .plan:before{content:"";display:block;width:54px;height:6px;border-radius:6px;background:var(--pc);margin:-4px 0 14px}
@@ -168,6 +168,40 @@ window.__planes={clave:clave,cache:c,foto:T.listo.then(function(){return T.demo&
   .weeb-back{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:12px;z-index:200;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 15px;border:0;border-radius:999px;background:rgba(var(--t-1e3a19-rgb,30,58,25),.82);color:#fff;font:600 .85rem 'Montserrat',system-ui,sans-serif;text-decoration:none;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}
   .weeb-back:active{transform:scale(.96)}
   body{padding-top:68px!important}
+
+  /* ---- movimiento y cambio de salón ---- */
+  @keyframes rise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+  @keyframes pop{0%{transform:scale(.6);opacity:0}70%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
+  body{transition:background-color .6s ease,color .6s ease}
+  .eyebrow,h1,.lead,.saltabs{animation:rise .75s cubic-bezier(.2,.7,.2,1) both}
+  .eyebrow{animation-delay:.04s}h1{animation-delay:.11s}.lead{animation-delay:.19s}.saltabs{animation-delay:.27s}
+  .salhd{margin:22px 0 4px;display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;animation:rise .55s cubic-bezier(.2,.7,.2,1) both}
+  .salhd span{opacity:.8;font-weight:600}
+  .salhd b{font-family:'Baloo 2','Montserrat',system-ui,sans-serif;font-weight:800;font-size:clamp(1.5rem,5.2vw,2.1rem);line-height:1.05;color:var(--yl)}
+  .salhd small{font-weight:700;font-size:.82rem;padding:4px 11px;border-radius:999px;background:rgba(255,255,255,.14)}
+  .plans.nuevo .plan{animation:rise .6s cubic-bezier(.2,.7,.2,1) both}
+  .plans.nuevo .plan:nth-child(2){animation-delay:.09s}.plans.nuevo .plan:nth-child(3){animation-delay:.18s}.plans.nuevo .plan:nth-child(4){animation-delay:.27s}
+  .plan{transition:transform .28s cubic-bezier(.2,.7,.2,1),box-shadow .28s,background-color .6s,border-color .6s}
+  @media (hover:hover){.plan:hover{transform:translateY(-5px)}}
+  .rv{opacity:0;transform:translateY(28px);transition:opacity .75s ease,transform .75s cubic-bezier(.2,.7,.2,1)}
+  .rv.in{opacity:1;transform:none}
+  ::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal}
+  ::view-transition-old(root){z-index:1}::view-transition-new(root){z-index:2}
+  @media (prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}.rv{opacity:1;transform:none}}
+
+  /* botones de salón con el diseño de cada Quokka */
+  .saltabs{display:grid;grid-template-columns:1fr;gap:12px;margin-top:26px}
+  .saltabs button.sb{position:relative;display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;padding:10px 18px 10px 12px;min-height:0;border-radius:20px;background:#fff;color:var(--sbc);border:3px solid transparent;box-shadow:0 8px 22px -12px rgba(0,0,0,.55);opacity:.62;filter:saturate(.7);transform:scale(.975);transition:transform .35s cubic-bezier(.2,.8,.2,1),opacity .35s,filter .35s,box-shadow .35s,border-color .35s;text-align:left}
+  .saltabs button.sb::before{display:none}
+  .saltabs button.sb img{display:block;width:100%;max-height:104px;object-fit:contain;object-position:left center}
+  .saltabs button.sb .ed{display:flex;flex-direction:column;align-items:center;line-height:1;font-weight:800;font-size:.8rem;text-transform:none;padding-left:4px}
+  .saltabs button.sb .ed b{font-family:'Baloo 2','Montserrat',sans-serif;font-size:2rem;font-weight:800;white-space:nowrap}
+  .saltabs button.sb[aria-pressed=true]{opacity:1;filter:none;transform:none;border-color:var(--sbc);box-shadow:0 0 0 4px color-mix(in srgb,var(--sbc) 40%,transparent),0 16px 34px -14px rgba(0,0,0,.7)}
+  .saltabs button.sb .ck{position:absolute;top:-10px;right:-6px;width:28px;height:28px;border-radius:50%;background:var(--sbc);display:none;place-items:center}
+  .saltabs button.sb .ck:after{content:"";width:12px;height:7px;border:solid #fff;border-width:0 0 3px 3px;transform:rotate(-45deg) translate(1px,-1px)}
+  .saltabs button.sb[aria-pressed=true] .ck{display:grid;animation:pop .45s cubic-bezier(.2,.8,.2,1) both}
+  .saltabs button.sb:not([aria-pressed=true]):hover{opacity:.9}
+  @media (min-width:700px){.saltabs{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
@@ -184,6 +218,7 @@ window.__planes={clave:clave,cache:c,foto:T.listo.then(function(){return T.demo&
   </div>
 
   <div class="saltabs" id="salTabs" role="group" aria-label="Elegí el salón" hidden></div>
+  <div class="salhd" id="salHd" hidden></div>
   <div class="plans" id="planes" style="margin-top:26px" aria-busy="true"><div class="plan sk"><i></i><i></i><i></i><i></i></div><div class="plan sk"><i></i><i></i><i></i><i></i></div><div class="plan sk"><i></i><i></i><i></i><i></i></div></div>
 
   <section class="blk" id="canjeSec" aria-labelledby="agr">
@@ -236,6 +271,13 @@ if(emb)document.querySelectorAll('a[href^="./"]:not(.weeb-back)').forEach(functi
 </script>
 
 <script>
+/* cada Quokka tiene su paleta: Original queda como está; Selva cambia fondo, colores y textos */
+window.SALTEMAS=[
+ {re:/original/i,img:'./assets/marca/boton-original.webp',c:'#4b2aa8',vars:null,pal:null},
+ {re:/selva/i,img:'./assets/marca/boton-selva.webp',c:'#027a3c',pal:['#fffea1','#6fdc8c','#f19143','#c0a3ff'],vars:{'--bg':'#0b4a24','--bg2':'#003612','--fg':'#fbf3e4','--ac':'#fffea1','--cy':'#fffea1','--yl':'#fffea1','--li':'#03ad55','--t-b1c74d':'#fffea1','--t-b1c74d-rgb':'255,254,161','--t-d4e48a':'#fffea1','--t-1e3a19':'#003612','--t-1e3a19-rgb':'0,54,18','--t-2f5429':'#0f5a2c','--t-83b27c':'#03ad55','--t-406c38':'#0b4a24','--t-325a2b':'#003612'}}
+];
+</script>
+<script>
 /* Todo lo que muestra esta página sale de la hoja y se edita desde el panel (Turnos → Planes y página de planes). */
 (function(){
 var $=function(i){return document.getElementById(i)}, esc=function(t){return String(t==null?'':t).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
@@ -255,12 +297,25 @@ function paleta(){var T=window.TEMA||{},h=function(x){x=String(x||'').replace(/^
     return [f(hh+1/3),f(hh),f(hh-1/3)].map(function(v){return ('0'+Math.round(v*255).toString(16)).slice(-2)}).join('')}
   if(!l.length)return null;var o=l.slice(0,4);for(var k=1;o.length<4;k++)o.push(rot(l[0],k*70));return o.map(function(x){return '#'+rot(x,0,.52)})}
 function lum(hex){var v=[1,3,5].map(function(i){return parseInt(hex.substr(i,2),16)/255});return .299*v[0]+.587*v[1]+.114*v[2]}
-function pcStyle(i){var PAL=paleta();if(!PAL)return '';var c=PAL[i%PAL.length];return ' style="--pc:'+c+';--pt:'+(lum(c)>.6?'#1a1a1a':'#fff')+'"'}
+function pcStyle(i){var PAL=window.__salPal||paleta();if(!PAL)return '';var c=PAL[i%PAL.length];return ' style="--pc:'+c+';--pt:'+(lum(c)>.6?'#1a1a1a':'#fff')+'"'}
 var MES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 function hastaMes(t){var f=t&&t.hasta;if(f&&/^\d{4}-\d{2}/.test(f))return 'hasta fin de '+MES[Number(f.slice(5,7))-1];if(window.TEMA&&TEMA.demo){var d=new Date();return 'hasta fin de '+MES[(d.getMonth()+1)%12]}return ''}
 function resaltar(t){return esc(t).replace(/\*([^*]+)\*/g,'<em>$1</em>')}
 function foto(u){return /^https?:/i.test(u)?u:'./'+String(u).replace(/^\.\//,'')}
-function armar(c){
+/* temas por salón: cada salón puede tener su propia paleta (fondo, colores y textos); si no, se usa la general */
+var SALTEMAS=window.SALTEMAS||[],__tvars=[];
+function temaDe(x){for(var i=0;i<SALTEMAS.length;i++)if(SALTEMAS[i].re.test(x.nombre||''))return SALTEMAS[i];return null}
+function aplicarTema(t){var b=document.body;__tvars.forEach(function(k){b.style.removeProperty(k)});__tvars=[];
+  var bg=null;if(t&&t.vars){Object.keys(t.vars).forEach(function(k){b.style.setProperty(k,t.vars[k]);__tvars.push(k)});bg=t.vars['--bg']}
+  window.__salPal=t&&t.pal||null;
+  document.documentElement.style.background=bg||'';var m=document.querySelector('meta[name=theme-color]');if(m){if(!m.__o)m.__o=m.content;m.content=bg||m.__o}}
+var SALDEF=function(n){var m=/\(([^)]+)\)/.exec(n||''),base=String(n||'').replace(/\s*\([^)]*\)\s*/,'').trim(),ed=m?m[1]:'',p=/^(.*?)\s*(años?|meses|a\u00f1os)$/i.exec(ed);return{base:base,ed:ed,n:p?p[1]:ed,u:p?p[2]:''}};
+var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches;
+var __io=null;function revelar(){if(!('IntersectionObserver' in window)||reduce)return;
+  if(!__io)__io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');__io.unobserve(e.target)}})},{rootMargin:'0px 0px -8% 0px',threshold:.06});
+  document.querySelectorAll('.blk:not(.rv),.extras:not(.rv),.cta:not(.rv),.note:not(.rv)').forEach(function(e){e.classList.add('rv');__io.observe(e)})}
+function armar(c){try{armar0(c)}finally{var pl=$('planes');pl.classList.remove('nuevo');void pl.offsetWidth;pl.classList.add('nuevo');if(window.__cambio){window.__cambio=0}revelar()}}
+function armar0(c){
   txt('pgEtiqueta',c.pgEtiqueta);txt('pgBajada',c.pgBajada);if(c.pgTitulo){$('pgTitulo').innerHTML=resaltar(c.pgTitulo);document.title=c.pgEtiqueta?c.pgEtiqueta+' — '+(c.nombre||''):document.title}
   ['pgCanjeTitulo','pgCanjeTexto','pgIncluyeTitulo','pgIncluyeSub','pgAdicionalesTitulo','pgPasosTitulo','pgPasosSub','pgFaqTitulo','pgCtaTexto','pgCtaBoton'].forEach(function(k){txt(k,c[k])});
   if($('canjeSec'))$('canjeSec').hidden=c.pgCanjeTitulo==='';   /* título vacío = sin esa sección */
@@ -278,11 +333,20 @@ function armar(c){
   var planes=c.planes||[],turnos=(c.turnos||[]).slice().sort(function(a,b){return a.inicio<b.inicio?-1:1});
   /* con más de un salón: una pestaña por salón; cada uno muestra sus combos y sus horarios */
   var sals=c.salones||[],tabs=$('salTabs');
-  if(sals.length>1){var sid=window.__salSel&&sals.some(function(x){return x.id===window.__salSel})?window.__salSel:sals[0].id;
+  if(sals.length>1){var sid=window.__salSel&&sals.some(function(x){return x.id===window.__salSel})?window.__salSel:sals[0].id,sx=sals.filter(function(x){return x.id===sid})[0];
     planes=planes.filter(function(p){return !p.salonId||p.salonId===sid});turnos=turnos.filter(function(t){return t.salonId===sid});
+    aplicarTema(temaDe(sx));
     var PL=paleta();if(PL){tabs.style.setProperty('--pc',PL[0]);tabs.style.setProperty('--pt',lum(PL[0])>.6?'#1a1a1a':'#fff')}
-    tabs.innerHTML=sals.map(function(x){var sv=/selva/i.test(x.nombre),k=sv?['#0b4a24','#03ad55','#027a3c']:['#2c1a73','#8b6df0','#4b2aa8'];return '<button type="button" data-s="'+esc(x.id)+'" aria-pressed="'+(x.id===sid)+'" style="--bk:'+k[0]+';--bc:'+k[1]+';--bk2:'+k[2]+';--pc:'+k[2]+';--pt:#fff">'+esc(x.nombre)+'</button>'}).join('');
-    tabs.onclick=function(e){var b=e.target.closest('button[data-s]');if(b&&b.getAttribute('aria-pressed')!=='true'){window.__salSel=b.getAttribute('data-s');armar(c)}};tabs.hidden=false}else{tabs.hidden=true;tabs.innerHTML=''}
+    tabs.innerHTML=sals.map(function(x){var t=temaDe(x),d=SALDEF(x.nombre),on=x.id===sid;
+      if(t&&t.img)return '<button type="button" class="sb" data-s="'+esc(x.id)+'" aria-pressed="'+on+'" aria-label="'+esc(x.nombre)+'" style="--sbc:'+t.c+'"><img src="'+esc(t.img)+'" alt="" width="900" height="425"><span class="ed"><b>'+esc(d.n)+'</b>'+esc(d.u)+'</span><i class="ck"></i></button>';
+      var sv=/selva/i.test(x.nombre),k=sv?['#0b4a24','#03ad55','#027a3c']:['#2c1a73','#8b6df0','#4b2aa8'];return '<button type="button" data-s="'+esc(x.id)+'" aria-pressed="'+on+'" style="--bk:'+k[0]+';--bc:'+k[1]+';--bk2:'+k[2]+';--pc:'+k[2]+';--pt:#fff">'+esc(x.nombre)+'</button>'}).join('');
+    var hd=$('salHd'),dd=SALDEF(sx.nombre);if(hd){hd.hidden=false;hd.innerHTML='<span>Combos de</span><b>'+esc(dd.base||sx.nombre)+'</b>'+(dd.ed?'<small>'+esc(dd.ed)+'</small>':'');hd.style.animation='none';void hd.offsetWidth;hd.style.animation=''}
+    tabs.onclick=function(e){var b=e.target.closest('button[data-s]');if(!b||b.getAttribute('aria-pressed')==='true')return;var id=b.getAttribute('data-s');
+      var go=function(){window.__salSel=id;window.__cambio=1;armar(c)};
+      if(document.startViewTransition&&!reduce){var r=b.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2,R=Math.hypot(Math.max(x,innerWidth-x),Math.max(y,innerHeight-y));
+        var vt=document.startViewTransition(go);vt.ready.then(function(){document.documentElement.animate({clipPath:['circle(0px at '+x+'px '+y+'px)','circle('+R+'px at '+x+'px '+y+'px)']},{duration:750,easing:'cubic-bezier(.3,.7,.2,1)',pseudoElement:'::view-transition-new(root)'})}).catch(function(){})}
+      else go()};
+    tabs.hidden=false}else{tabs.hidden=true;tabs.innerHTML='';aplicarTema(null);if($('salHd'))$('salHd').hidden=true}
   if(!planes.length){$('planes').innerHTML='<p class="cargando">Los planes se publican muy pronto. <a href="./reservar/">Ver disponibilidad</a></p>';$('upgrade').innerHTML='';$('promoSec').hidden=true;return}
   var pr=function(p,t){return p.precios&&p.precios[t.id]!=null?Number(p.precios[t.id]):p.precio};
   var promo=function(t){return /promo/i.test(t.etiqueta||'')};
