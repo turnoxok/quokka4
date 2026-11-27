@@ -63,3 +63,5 @@ input.t::placeholder{color:rgba(250,255,249,.5)}input.t:focus{outline:none;borde
 .vacio{text-align:center;padding:2rem 0}.vacio h2{font-family:'Baloo 2','Montserrat',sans-serif;font-size:1.8rem;margin-bottom:8px}
 .cargando{text-align:center;margin-top:30vh;font-weight:700}.sr{position:absolute;left:-9999px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.weeb-back{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:12px;z-index:200;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 15px;border:0;border-radius:999px;background:rgba(var(--t-1e3a19-rgb,30,58,25),.82);color:#fff;font:600 .85rem 'Montserrat',system-ui,sans-serif;text-decoration:none;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+.weeb-back:active{transform:scale(.96)}
