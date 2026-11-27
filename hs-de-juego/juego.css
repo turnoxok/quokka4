@@ -102,3 +102,7 @@ input.t::placeholder{color:#8a84a6}input.t:focus{border-color:#4b2aa8;box-shadow
 .mini{opacity:1;color:var(--tx2)}
 .link,.volver{color:#4b2aa8;opacity:1}
 .weeb-back{background:rgba(27,20,64,.9)}
+/* En la compu los horarios van en 4 o 5 columnas (cada tarjeta mantiene su tamaño aunque haya pocos horarios) */
+.plans{grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:18px}
+@media (min-width:700px){.plan{padding:22px 18px 18px}.plan h2{font-size:1.55rem}.plan .for{font-size:.84rem}.go{padding:13px 14px;font-size:.95rem}.badge{font-size:.66rem}.hero{max-height:300px;object-fit:cover;object-position:center}}
+.plan{min-width:0}.plans{grid-template-columns:repeat(auto-fill,minmax(205px,1fr))}
