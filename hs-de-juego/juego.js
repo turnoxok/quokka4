@@ -19,35 +19,43 @@ async function llamar(action, data, post) {
 }
 const wa = txt => S.pub && S.pub.whatsapp ? 'https://wa.me/' + String(S.pub.whatsapp).replace(/\D/g, '') + (txt ? '?text=' + encodeURIComponent(txt) : '') : '';
 const colorSalon = id => (S.cfg.colores && S.cfg.colores[id]) || '#c0a3ff';
-function pagina(...c) { clearInterval(S.timer); clearInterval(S.poll); $('#app').replaceChildren(h('div', { class: 'page' }, h('div', { class: 'hero' }, h('a', { class: 'volver', href: '../' }, '← Volver al sitio'), (S.pub && S.pub.logoUrl ? h('img', { src: S.pub.logoUrl, alt: S.pub.nombre, onerror: e => e.target.remove() }) : ''), h('h1', null, 'hs de juego'), h('p', null, 'Elegí un horario, reservá tu mesa y que los chicos se la pasen genial.')), h('div', { class: 'cont' }, ...c))); window.scrollTo(0, 0); }
+function pagina(...c) {
+  clearInterval(S.timer); clearInterval(S.poll);
+  const logo = (window.TEMA && TEMA.logo) || (S.pub && S.pub.logoUrl), emb = window.parent !== window;
+  $('#app').replaceChildren(
+    emb ? h('button', { class: 'weeb-back', onclick: () => parent.postMessage('weeb-cerrar', location.origin) }, '← Volver al sitio') : h('a', { class: 'weeb-back', href: S.cfg.volver || '../' }, '← Volver al sitio'),
+    h('div', { class: 'wrap' }, logo ? h('div', { class: 'brand', style: 'margin-top:34px' }, h('img', { src: logo, alt: S.pub ? S.pub.nombre : '', onerror: e => e.target.remove() })) : h('div', { style: 'height:34px' }),
+      h('div', { class: 'eyebrow' }, 'hs de juego'), h('h1', null, 'Elegí tu horario'), h('p', { class: 'lead' }, 'Reservá una mesa y que los chicos jueguen todo el turno. Los adultos no pagan.'), ...c)); window.scrollTo(0, 0);
+}
 
 async function iniciar() {
   S.cfg = await fetch('../reservar/config.json', { cache: 'no-store' }).then(r => r.json());
-  try { S.pub = await llamar('config'); } catch (e) { $('#app').replaceChildren(h('div', { class: 'vacio' }, h('p', null, e.message), h('button', { class: 'btn', onclick: () => location.reload() }, 'Reintentar'))); return; }
+  try { S.pub = await llamar('config'); } catch (e) { $('#app').replaceChildren(h('div', { class: 'vacio' }, h('p', null, e.message), h('button', { class: 'go on', style: 'max-width:300px;margin:14px auto 0', onclick: () => location.reload() }, 'Reintentar'))); return; }
   document.title = 'hs de juego · ' + S.pub.nombre;
+  try { if (window.TEMA && TEMA.listo) await Promise.race([TEMA.listo, new Promise(r => setTimeout(r, 2500))]); } catch (e) { }
   const cod = new URLSearchParams(location.search).get('codigo');
   if (cod) return estado({ codigo: cod }); lista();
 }
 async function lista() {
-  pagina(h('p', { class: 'centro' }, 'Buscando horarios…'));
-  let d; try { d = await llamar('juego'); } catch (e) { return pagina(h('div', { class: 'err' }, e.message), h('button', { class: 'btn', onclick: lista }, 'Reintentar')); }
+  pagina(h('p', { class: 'mini' }, 'Buscando horarios…'));
+  let d; try { d = await llamar('juego'); } catch (e) { return pagina(h('div', { class: 'angosto' }, h('div', { class: 'err' }, e.message), h('button', { class: 'go on', onclick: lista }, 'Reintentar'))); }
   S.slots = d.slots;
   const miRes = h('button', { class: 'link', onclick: consultar }, 'Ya reservé: ver mi reserva');
-  if (!S.slots.length) return pagina(h('div', { class: 'vacio' }, h('h2', null, 'Todavía no hay horarios'), h('p', { class: 'mini' }, 'Cuando abramos nuevos horarios de hs de juego los vas a ver acá.'), wa('Hola! Quiero saber cuándo hay hs de juego.') ? h('a', { class: 'btn alt', href: wa('Hola! Quiero saber cuándo hay hs de juego.'), target: '_blank', rel: 'noopener' }, 'Preguntanos por WhatsApp') : ''), miRes);
+  if (!S.slots.length) return pagina(h('div', { class: 'vacio' }, h('h2', null, 'Todavía no hay horarios'), h('p', { class: 'mini', style: 'margin-bottom:18px' }, 'Cuando abramos nuevos horarios de hs de juego los vas a ver acá.'), wa('Hola! Quiero saber cuándo hay hs de juego.') ? h('a', { class: 'go on', style: 'max-width:340px;margin:0 auto', href: wa('Hola! Quiero saber cuándo hay hs de juego.'), target: '_blank', rel: 'noopener' }, 'Preguntanos por WhatsApp') : ''), miRes);
   const porDia = {}; S.slots.forEach(s => (porDia[s.fecha] = porDia[s.fecha] || []).push(s)); let n = 0;
-  const bloques = Object.keys(porDia).sort().map(f => [h('h2', { class: 'dia' }, flarga(f)), porDia[f].map(s => tarjeta(s, n++))]);
-  pagina(bloques, h('div', { class: 'centro' }, miRes));
+  const bloques = Object.keys(porDia).sort().map(f => [h('h2', { class: 'dia' }, flarga(f)), h('div', { class: 'plans' }, porDia[f].map(s => tarjeta(s, n++)))]);
+  pagina(bloques, h('div', { class: 'centro', style: 'margin-top:26px' }, miRes));
   requestAnimationFrame(() => setTimeout(() => document.querySelectorAll('.barra i').forEach(i => (i.style.width = i.dataset.w), 80), 120));
 }
 function tarjeta(s, n) {
-  const ocupadas = s.anotados, pct = Math.round(ocupadas / s.cupo * 100), poco = s.libres > 0 && s.libres <= Math.max(1, Math.ceil(s.cupo * .25));
-  return h('div', { class: 'slot', style: `--sc:${colorSalon(s.salonId)};animation-delay:${n * 90}ms` },
-    h('div', { class: 'hh' }, h('b', null, `${s.inicio} a ${s.fin}`), s.salon ? h('span', null, s.salon) : ''),
-    h('p', { class: 'pre' }, `${money(s.precio)} por niño · los adultos no pagan`),
+  const pct = Math.round(s.anotados / s.cupo * 100), poco = s.libres > 0 && s.libres <= Math.max(1, Math.ceil(s.cupo * .25));
+  return h('div', { class: 'plan', style: `--pc:${colorSalon(s.salonId)};animation-delay:${n * 90}ms` },
+    s.salon ? h('span', { class: 'badge' }, s.salon) : '',
+    h('h2', null, `${s.inicio} a ${s.fin}`), h('p', { class: 'for' }, `${money(s.precio)} por niño · los adultos no pagan`),
     s.flyer ? h('img', { class: 'flyer', src: s.flyer, alt: 'Flyer de hs de juego', loading: 'lazy', onerror: e => e.target.remove() }) : '',
     h('div', { class: 'barra' + (poco ? ' casi' : ''), role: 'img', 'aria-label': `Quedan ${s.libres} de ${s.cupo} mesas` }, h('i', { 'data-w': pct + '%' })),
     h('p', { class: 'quedan' }, s.completo ? 'Mesas completas' : `Quedan ${s.libres} de ${s.cupo} mesas${poco ? ' · ¡se están yendo!' : ''}`),
-    h('button', { class: 'btn', disabled: s.completo, onclick: () => formulario(s) }, s.completo ? 'Completo' : 'Reservar mi mesa'));
+    h('button', { class: 'go on', disabled: s.completo, onclick: () => formulario(s) }, s.completo ? 'Completo' : 'Reservar mi mesa'));
 }
 function stepper(titulo, sub, min, max, ini, cambio) {
   let v = ini; const out = h('output', null, v), menos = h('button', { type: 'button', 'aria-label': 'Menos ' + titulo.toLowerCase(), onclick: () => poner(v - 1) }, '−'), mas = h('button', { type: 'button', 'aria-label': 'Más ' + titulo.toLowerCase(), onclick: () => poner(v + 1) }, '+');
@@ -57,20 +65,20 @@ function stepper(titulo, sub, min, max, ini, cambio) {
 function formulario(s) {
   let chicos = 1, adultos = Math.min(1, s.adultosMax); const tot = h('b', null, money(s.precio)), msg = h('div');
   const nom = h('input', { class: 't', name: 'nombre', autocomplete: 'name', placeholder: 'Nombre y apellido', required: true }), tel = h('input', { class: 't', name: 'tel', type: 'tel', autocomplete: 'tel', placeholder: 'Tu WhatsApp', required: true }), mail = h('input', { class: 't', name: 'mail', type: 'email', autocomplete: 'email', placeholder: 'Tu mail (ahí te llega la confirmación)', required: true });
-  const trampa = h('input', { class: 'sr', tabindex: '-1', autocomplete: 'off', 'aria-hidden': 'true', name: 'web' }), btn = h('button', { class: 'btn', style: 'margin-top:.4rem' }, 'Reservar mi mesa');
+  const trampa = h('input', { class: 'sr', tabindex: '-1', autocomplete: 'off', 'aria-hidden': 'true', name: 'web' }), btn = h('button', { class: 'go on', style: 'margin-top:6px' }, 'Reservar mi mesa');
   const f = h('form', { novalidate: true, onsubmit: async ev => {
     ev.preventDefault(); msg.replaceChildren();
     const falla = t => { msg.replaceChildren(h('div', { class: 'err', role: 'alert' }, t)); };
     if (nom.value.trim().length < 3 || !nom.value.trim().includes(' ')) return falla('Escribí tu nombre y apellido.'); if (tel.value.replace(/\D/g, '').length < 6) return falla('Escribí tu WhatsApp.'); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail.value.trim())) return falla('Escribí tu mail para mandarte la confirmación.');
     btn.disabled = true; btn.textContent = 'Reservando…';
     try { const r = await llamar('reservarJuego', { juegoId: s.id, nombre: nom.value.trim(), telefono: tel.value.trim(), email: mail.value.trim(), chicos, adultos, web: trampa.value }, true); history.replaceState(null, '', '?codigo=' + r.codigo); resultado(r); }
-    catch (e) { btn.disabled = false; btn.textContent = 'Reservar mi mesa'; falla(e.message); if (e.codigo === 'COMPLETO' || e.codigo === 'NO_DISPONIBLE') msg.append(h('button', { type: 'button', class: 'btn alt', onclick: lista }, 'Ver otros horarios')); }
+    catch (e) { btn.disabled = false; btn.textContent = 'Reservar mi mesa'; falla(e.message); if (e.codigo === 'COMPLETO' || e.codigo === 'NO_DISPONIBLE') msg.append(h('button', { type: 'button', class: 'go', onclick: lista }, 'Ver otros horarios')); }
   } },
     h('label', { class: 'f' }, 'Nombre y apellido'), nom, h('label', { class: 'f' }, 'WhatsApp'), tel, h('label', { class: 'f' }, 'Mail'), mail, trampa,
     stepper('Niños', `${money(s.precio)} cada uno`, 1, 50, 1, v => { chicos = v; tot.textContent = money(v * s.precio); }),
     stepper('Adultos', `Hasta ${s.adultosMax} por mesa · no pagan`, 0, s.adultosMax, adultos, v => { adultos = v; }),
     h('div', { class: 'total' }, h('span', null, 'Total a pagar'), tot), h('p', { class: 'mini' }, 'Cada familia ocupa 1 mesa. Te guardamos la mesa 15 minutos para que hagas la transferencia y subas el comprobante.'), msg, btn);
-  pagina(h('button', { class: 'link', onclick: lista }, '← Elegir otro horario'), h('div', { class: 'card' }, h('h2', { style: 'margin:0 0 .2rem' }, flarga(s.fecha)), h('p', { style: 'margin:0;font-weight:700' }, `${s.inicio} a ${s.fin}` + (s.salon ? ' · ' + s.salon : '')), f));
+  pagina(h('div', { class: 'angosto' }, h('button', { class: 'volver', onclick: lista }, '← Elegir otro horario')), h('div', { class: 'panel', style: `border-color:color-mix(in srgb,${colorSalon(s.salonId)} 55%,transparent)` }, h('h2', null, flarga(s.fecha)), h('p', { style: 'font-weight:700;margin-top:4px' }, `${s.inicio} a ${s.fin}` + (s.salon ? ' · ' + s.salon : '')), f));
   nom.focus({ preventScroll: true });
 }
 const copiar = (label, valor) => h('div', { class: 'copy' }, h('div', null, h('span', null, label), h('b', null, valor)), h('button', { onclick: e => { navigator.clipboard && navigator.clipboard.writeText(valor); e.target.textContent = '¡Copiado!'; setTimeout(() => (e.target.textContent = 'Copiar'), 1500); } }, 'Copiar'));
@@ -86,33 +94,33 @@ function leerArchivo(f) {
 function resultado(r) {
   const pend = r.estado === 'pendiente', ok = r.estado === 'confirmada', t = r.transferencia, falta = r.total - r.pagado;
   const aviso = wa(`Hola! Ya hice la transferencia de hs de juego. Reserva ${r.codigo} a nombre de ${r.nombre}, ${flarga(r.fecha)} de ${r.inicio} a ${r.fin} hs.`);
-  const msg = h('p', { class: 'mini', style: 'margin-top:.6rem' }), inp = h('input', { type: 'file', accept: 'image/*,application/pdf', style: 'display:none' }), c = r.comprobante;
-  const btnSub = h('button', { class: 'btn lila', style: 'margin-top:.8rem', onclick: () => inp.click() }, c ? 'Cambiar comprobante' : 'Subir comprobante');
-  inp.addEventListener('change', async () => { const f = inp.files && inp.files[0]; if (!f) return; btnSub.disabled = true; btnSub.textContent = 'Enviando…'; msg.textContent = 'Subiendo el archivo, no cierres esta página.';
+  const msg = h('p', { class: 'mini', style: 'margin-top:10px' }), inp = h('input', { type: 'file', accept: 'image/*,application/pdf', style: 'display:none' }), c = r.comprobante;
+  const btnSub = h('button', { class: 'go on', style: 'margin-top:14px', onclick: () => inp.click() }, c ? 'Cambiar comprobante' : 'Subir comprobante');
+  inp.addEventListener('change', async () => { const f = inp.files && inp.files[0]; if (!f) return; btnSub.disabled = true; btnSub.textContent = 'Enviando…'; msg.className = 'mini'; msg.textContent = 'Subiendo el archivo, no cierres esta página.';
     try { const a = await leerArchivo(f); resultado(await llamar('comprobanteJuego', { id: r.id, ...a }, true)); } catch (e) { btnSub.disabled = false; btnSub.textContent = c ? 'Cambiar comprobante' : 'Subir comprobante'; msg.className = 'err'; msg.textContent = e.message + ' Podés mandarlo por WhatsApp.'; inp.value = ''; } });
   const reloj = h('div', { class: 'reloj' }, r.venceEn ? '' : 'Recibimos tu comprobante. Tu mesa queda guardada hasta que el salón confirme el pago.');
-  pagina(h('div', { class: 'card' }, h('div', { class: 'ok' }, ok ? '🎉' : pend ? '⏳' : '😕'),
-    h('h2', { class: 'centro', style: 'margin:.2rem 0' }, ok ? '¡Mesa confirmada!' : pend ? `¡Casi listo, ${r.nombre}!` : r.estado === 'vencida' ? 'Se liberó la mesa' : 'Reserva cancelada'),
-    h('p', { class: 'centro', style: 'margin:0;font-weight:700' }, `${flarga(r.fecha)} · ${r.inicio} a ${r.fin}` + (r.salon ? ' · ' + r.salon : '')),
-    h('p', { class: 'centro mini' }, `${r.chicos} ${r.chicos === 1 ? 'niño' : 'niños'} y ${r.adultos} ${r.adultos === 1 ? 'adulto' : 'adultos'}`), h('div', { class: 'codigo' }, r.codigo),
-    ok ? h('p', { class: 'centro mini' }, 'Te mandamos la confirmación por mail. ¡Los esperamos!') : '',
-    r.estado === 'vencida' ? h('p', { class: 'centro mini' }, 'Pasaron los 15 minutos sin el pago. Si todavía querés, reservá de nuevo o escribinos.') : ''),
-    pend ? [h('div', { class: 'card' }, reloj, h('h3', { style: 'margin:.2rem 0 .4rem' }, 'Transferí ' + money(falta)),
-      t ? [t.alias ? copiar('Alias', t.alias) : '', t.cbu ? copiar('CBU / CVU', t.cbu) : '', t.titular ? copiar('Titular', t.titular) : '', t.banco ? h('p', { class: 'mini' }, 'Banco o billetera: ' + t.banco) : '', t.nota ? h('p', { class: 'mini' }, t.nota) : ''] : h('p', { class: 'mini' }, 'Escribinos por WhatsApp para coordinar el pago.')),
-      h('div', { class: 'card' }, h('h3', { style: 'margin:0 0 .3rem' }, c ? '✓ Comprobante recibido' : 'Mandanos el comprobante'), h('p', { class: 'mini', style: 'margin:0' }, c ? 'Recibimos «' + c.nombre + '». En cuanto lo revisemos, confirmamos tu mesa.' : 'Subí la foto o el PDF de la transferencia, o enviáloselo al salón por WhatsApp.'), inp, btnSub, aviso ? h('a', { class: 'btn alt', style: 'margin-top:.7rem', href: aviso, target: '_blank', rel: 'noopener' }, 'Prefiero enviarlo por WhatsApp') : '', msg)] : '',
-    h('div', { class: 'centro', style: 'margin-top:1rem' }, h('button', { class: 'link', onclick: () => { history.replaceState(null, '', location.pathname); lista(); } }, '← Ver los horarios'), h('a', { class: 'link', style: 'margin-left:1rem;color:inherit', href: '../' }, 'Volver al sitio')));
+  pagina(h('div', { class: 'panel centro' }, h('div', { class: 'sello' + (ok ? '' : pend ? ' espera' : ' no') }),
+    h('h2', null, ok ? '¡Mesa confirmada!' : pend ? `¡Casi listo, ${r.nombre}!` : r.estado === 'vencida' ? 'Se liberó la mesa' : 'Reserva cancelada'),
+    h('p', { style: 'font-weight:700;margin-top:8px' }, `${flarga(r.fecha)} · ${r.inicio} a ${r.fin}` + (r.salon ? ' · ' + r.salon : '')),
+    h('p', { class: 'mini' }, `${r.chicos} ${r.chicos === 1 ? 'niño' : 'niños'} y ${r.adultos} ${r.adultos === 1 ? 'adulto' : 'adultos'}`), h('div', { class: 'codigo' }, r.codigo),
+    ok ? h('p', { class: 'mini' }, 'Te mandamos la confirmación por mail. ¡Los esperamos!') : '',
+    r.estado === 'vencida' ? h('p', { class: 'mini' }, 'Pasaron los 15 minutos sin el pago. Si todavía querés, reservá de nuevo o escribinos.') : ''),
+    pend ? [h('div', { class: 'panel' }, reloj, h('h3', { style: 'margin-bottom:6px' }, 'Transferí ' + money(falta)),
+      t ? [t.alias ? copiar('Alias', t.alias) : '', t.cbu ? copiar('CBU / CVU', t.cbu) : '', t.titular ? copiar('Titular', t.titular) : '', t.banco ? h('p', { class: 'mini', style: 'margin-top:10px' }, 'Banco o billetera: ' + t.banco) : '', t.nota ? h('p', { class: 'mini', style: 'margin-top:6px' }, t.nota) : ''] : h('p', { class: 'mini' }, 'Escribinos por WhatsApp para coordinar el pago.')),
+      h('div', { class: 'panel' }, h('h3', { style: 'margin-bottom:6px' }, c ? '✓ Comprobante recibido' : 'Mandanos el comprobante'), h('p', { class: 'mini' }, c ? 'Recibimos «' + c.nombre + '». En cuanto lo revisemos, confirmamos tu mesa.' : 'Subí la foto o el PDF de la transferencia, o enviáloselo al salón por WhatsApp.'), inp, btnSub, aviso ? h('a', { class: 'go', style: 'margin-top:10px', href: aviso, target: '_blank', rel: 'noopener' }, 'Prefiero enviarlo por WhatsApp') : '', msg)] : '',
+    h('div', { class: 'centro', style: 'margin-top:8px' }, h('button', { class: 'link', onclick: () => { history.replaceState(null, '', location.pathname); lista(); } }, '← Ver los horarios')));
   if (pend && r.venceEn) {
     const fin = Date.parse(r.venceEn), tic = () => { const s = Math.max(0, Math.round((fin - Date.now()) / 1000)); reloj.replaceChildren('Tu mesa se guarda ', h('b', null, `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`)); if (!s) { clearInterval(S.timer); estado({ id: r.id }); } }; tic(); S.timer = setInterval(tic, 1000);
   }
   if (pend) S.poll = setInterval(async () => { if (inp.value) return; try { const n = await llamar('estadoJuego', { id: r.id }); if (n.estado !== 'pendiente') resultado(n); } catch (e) { } }, 20000);
 }
 async function estado(ref) {
-  pagina(h('p', { class: 'centro' }, 'Buscando tu reserva…'));
+  pagina(h('p', { class: 'mini' }, 'Buscando tu reserva…'));
   try { const r = await llamar('estadoJuego', ref); if (ref.codigo) history.replaceState(null, '', '?codigo=' + r.codigo); resultado(r); }
-  catch (e) { pagina(h('div', { class: 'err' }, e.message), h('button', { class: 'btn', onclick: () => { history.replaceState(null, '', location.pathname); lista(); } }, 'Ver los horarios')); }
+  catch (e) { pagina(h('div', { class: 'angosto' }, h('div', { class: 'err' }, e.message), h('button', { class: 'go on', onclick: () => { history.replaceState(null, '', location.pathname); lista(); } }, 'Ver los horarios'))); }
 }
 function consultar() {
   const inp = h('input', { class: 't', placeholder: 'Tu código de reserva', autocapitalize: 'characters', style: 'text-align:center;letter-spacing:.2em;font-weight:800' });
-  pagina(h('button', { class: 'link', onclick: lista }, '← Volver'), h('div', { class: 'card' }, h('h2', { style: 'margin:0 0 .6rem' }, 'Ver mi reserva'), h('p', { class: 'mini' }, 'Escribí el código que te llegó por mail.'), inp, h('button', { class: 'btn', style: 'margin-top:.8rem', onclick: () => inp.value.trim() && estado({ codigo: inp.value.trim() }) }, 'Buscar')));
+  pagina(h('div', { class: 'angosto' }, h('button', { class: 'volver', onclick: lista }, '← Volver')), h('div', { class: 'panel' }, h('h2', { style: 'margin-bottom:8px' }, 'Ver mi reserva'), h('p', { class: 'mini', style: 'margin-bottom:12px' }, 'Escribí el código que te llegó por mail.'), inp, h('button', { class: 'go on', style: 'margin-top:14px', onclick: () => inp.value.trim() && estado({ codigo: inp.value.trim() }) }, 'Buscar')));
 }
-iniciar().catch(e => { $('#app').replaceChildren(h('div', { class: 'vacio' }, h('p', null, 'No pudimos cargar la página. Recargá e intentá de nuevo.'), h('button', { class: 'btn', onclick: () => location.reload() }, 'Reintentar'))); });
+iniciar().catch(e => { $('#app').replaceChildren(h('div', { class: 'vacio' }, h('p', null, 'No pudimos cargar la página. Recargá e intentá de nuevo.'), h('button', { class: 'go on', onclick: () => location.reload() }, 'Reintentar'))); });
