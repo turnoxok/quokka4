@@ -652,6 +652,16 @@ async function verComprobante(btn, p, n) {
     document.body.append(ov);
   } catch (e) { toast(e.message, 'err'); } finally { btn.disabled = false; btn.textContent = t; }
 }
+function bloquePagos(ped) {
+  return ped.pagos.length ? [h('h3', { class: 'sec' }, 'Tus pagos'), h('div', { class: 'list' }, ped.pagos.slice().reverse().map(p => {
+    const ch = { confirmado: ['Confirmado', 'confirmada'], revision: ['En revisión', 'pendiente'], rechazado: ['Rechazado', 'cancelada'] }[p.estado] || [p.estado, ''];
+    const ver = Array.from({ length: p.archivos || 0 }, (_, i) => h('button', { class: 'btn sm line', type: 'button', onclick: ev => verComprobante(ev.currentTarget, p, i) }, p.archivos > 1 ? 'Ver comprobante ' + (i + 1) : 'Ver comprobante'));
+    return h('div', { class: 'item static', style: 'flex-wrap:wrap' }, h('div', { class: 'main' }, h('b', null, money(p.monto)), h('span', { class: 'muted small' }, PROD_INFO[p.k] ? PROD_INFO[p.k].t : p.k), p.nota && p.nota !== 'Cargado por tuweeb' ? h('span', { class: 'small' }, p.nota) : null, ver.length ? h('div', { style: 'display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.4rem' }, ver) : null), h('span', { class: 'chip ' + ch[1] }, ch[0]));
+  }))] : [];
+}
+function bloqueVenc(ped) {
+  return ((ped.venc || []).filter(v => !v.hecho).length ? [h('h3', { class: 'sec' }, 'Próximos pagos'), h('div', { class: 'list' }, ped.venc.filter(v => !v.hecho).sort((a, b) => a.fecha < b.fecha ? -1 : 1).map(v => { const d = Math.round((new Date(v.fecha + 'T12:00:00') - Date.now()) / 864e5); return h('div', { class: 'item static' }, h('div', { class: 'main' }, h('b', null, v.concepto), h('span', { class: 'muted small' }, new Date(v.fecha + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }) + (v.monto ? ' · ' + money(v.monto) : ''))), h('span', { class: 'chip ' + (d < 0 ? 'cancelada' : d <= 10 ? 'pendiente' : '') }, d < 0 ? 'Vencido' : d === 0 ? 'Vence hoy' : d <= 10 ? 'En ' + d + (d === 1 ? ' día' : ' días') : 'Programado')); }))] : []);
+}
 function pantallaPedido(main, ped) {
   const pagables = ped.items.filter(i => i.falta > 0 && i.sugerido > 0);
   const items = ped.items.map(it => {
@@ -665,15 +675,11 @@ function pantallaPedido(main, ped) {
       it.nota ? h('p', { class: 'small muted' }, it.nota) : null,
       pend && (!pagables.length || (pagables.length === 1 && pagables[0].k === it.k)) ? bloquePago(main, ped, it) : null);
   });
-  const pagos = ped.pagos.length ? [h('h3', { class: 'sec' }, 'Tus pagos'), h('div', { class: 'list' }, ped.pagos.slice().reverse().map(p => {
-    const ch = { confirmado: ['Confirmado', 'confirmada'], revision: ['En revisión', 'pendiente'], rechazado: ['Rechazado', 'cancelada'] }[p.estado] || [p.estado, ''];
-    const ver = Array.from({ length: p.archivos || 0 }, (_, i) => h('button', { class: 'btn sm line', type: 'button', onclick: ev => verComprobante(ev.currentTarget, p, i) }, p.archivos > 1 ? 'Ver comprobante ' + (i + 1) : 'Ver comprobante'));
-    return h('div', { class: 'item static', style: 'flex-wrap:wrap' }, h('div', { class: 'main' }, h('b', null, money(p.monto)), h('span', { class: 'muted small' }, PROD_INFO[p.k] ? PROD_INFO[p.k].t : p.k), p.nota && p.nota !== 'Cargado por tuweeb' ? h('span', { class: 'small' }, p.nota) : null, ver.length ? h('div', { style: 'display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.4rem' }, ver) : null), h('span', { class: 'chip ' + ch[1] }, ch[0]));
-  }))] : [];
+  const pagos = bloquePagos(ped);
   main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Mi web')), avisoPersonalizada(ped),
     h('p', { class: 'muted small', style: 'margin-bottom:.8rem' }, 'Acá ves lo que pediste y en qué está cada cosa. Se actualiza cuando confirmamos tus pagos.'),
     ...items, ...(pagables.length > 1 ? [bloquePago(main, ped, pagables)] : []),
-    ...((ped.venc || []).filter(v => !v.hecho).length ? [h('h3', { class: 'sec' }, 'Próximos pagos'), h('div', { class: 'list' }, ped.venc.filter(v => !v.hecho).sort((a, b) => a.fecha < b.fecha ? -1 : 1).map(v => { const d = Math.round((new Date(v.fecha + 'T12:00:00') - Date.now()) / 864e5); return h('div', { class: 'item static' }, h('div', { class: 'main' }, h('b', null, v.concepto), h('span', { class: 'muted small' }, new Date(v.fecha + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }) + (v.monto ? ' · ' + money(v.monto) : ''))), h('span', { class: 'chip ' + (d < 0 ? 'cancelada' : d <= 10 ? 'pendiente' : '') }, d < 0 ? 'Vencido' : d === 0 ? 'Vence hoy' : d <= 10 ? 'En ' + d + (d === 1 ? ' día' : ' días') : 'Programado')); }))] : []),
+    ...bloqueVenc(ped),
     ...pagos,
     ...(ped.dominio ? [h('p', { class: 'small', style: 'margin:.6rem 0' }, 'Tu dominio: ', h('b', null, ped.dominio))] : [dominioTarde(main, ped)]),
     notasPlanes(),
@@ -685,7 +691,8 @@ async function vWebDemo(main) {
   cargando(main); let ped; try { ped = await fabrica('pedido', { id: TEMA.demoId }, true); } catch (e) { main.replaceChildren(h('p', { class: 'empty' }, e.message), h('button', { class: 'btn soft', onclick: () => vWebDemo(main) }, 'Reintentar')); return; }
   if (ped.items.length) return pantallaPedido(main, ped);
   if (TEMA.cliente) return main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Mi web'), h('span', { class: 'chip confirmada' }, 'Activa')),
-    h('p', { class: 'muted small', style: 'margin:.4rem 0 .8rem' }, 'Tu sitio está publicado y funcionando. Acá van a aparecer tus pagos y vencimientos.'), avisoPersonalizada(ped),
+    h('p', { class: 'muted small', style: 'margin:.4rem 0 .8rem' }, ped.pagos.length || (ped.venc || []).length ? 'Tu sitio está publicado y funcionando. Acá ves los pagos y vencimientos que cargó tuweeb.' : 'Tu sitio está publicado y funcionando. Acá van a aparecer tus pagos y vencimientos.'), avisoPersonalizada(ped),
+    ...bloqueVenc(ped), ...bloquePagos(ped), ...(ped.dominio ? [h('p', { class: 'small', style: 'margin:.6rem 0' }, 'Tu dominio: ', h('b', null, ped.dominio))] : []),
     h('a', { class: 'btn line block', style: 'margin-top:1rem;text-align:center', target: '_blank', rel: 'noopener', href: 'https://wa.me/' + WA_TUWEEB + '?text=' + encodeURIComponent('Hola! Tengo una consulta sobre mi web.') }, 'Escribir a tuweeb'));
   main.replaceChildren(h('div', { class: 'bar' }, h('h2', null, 'Mi web')),
     h('p', { class: 'muted small', style: 'margin-bottom:.8rem' }, 'Elegí tu plan. Pagás por transferencia, subís el comprobante acá y seguís todo el proceso desde esta pantalla.'),
