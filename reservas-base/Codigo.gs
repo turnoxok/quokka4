@@ -29,7 +29,10 @@ var TABLAS = {
   Servicio:    ['clave', 'valor'],                                    // lo carga tuweeb (el cliente solo lo ve): precio del sitio, ediciones, dominio…
   ServicioPagos: ['id', 'fecha', 'monto', 'nota'],                    // cada pago del cliente a tuweeb (cuota o total)
   Pagos:       ['id', 'reservaId', 'fecha', 'monto', 'metodo', 'nota', 'creado', 'usuario'],
-  Movimientos: ['id', 'fecha', 'tipo', 'categoria', 'monto', 'descripcion', 'creado', 'usuario', 'ref'],
+  Movimientos: ['id', 'fecha', 'tipo', 'categoria', 'monto', 'descripcion', 'creado', 'usuario', 'ref', 'estado'],   // estado: 'pendiente' (todavía no cobrado, no suma al balance) o vacío/'confirmado'
+  Juego:       ['id', 'fecha', 'salonId', 'turnoId', 'estado', 'inicio', 'fin', 'cupo', 'adultosMax', 'precio', 'flyer', 'creado'],   // un horario de hs de juego que la dueña habilitó a mano sobre un turno bloqueado · cupo = mesas
+  JuegoReservas: ['id', 'creada', 'actualizada', 'juegoId', 'fecha', 'salonId', 'turnoId', 'inicio', 'fin', 'nombre', 'telefono', 'email', 'adultos', 'chicos', 'total', 'pagado', 'estado', 'origen', 'metodo', 'venceEn', 'codigo',
+                'compId', 'compUrl', 'compNombre', 'compTipo', 'compFecha', 'compOrigen', 'compBorrarEn'],   // una familia = una mesa
   Anotaciones: ['id', 'reservaId', 'texto', 'autor', 'autorNombre', 'rol', 'creada', 'editada'],   // anotaciones de cada reserva (las dejan la dueña o la encargada)
   Usuarios:    ['email', 'nombre', 'rol', 'activo', 'sal', 'claveHash'],
   Log:         ['fecha', 'usuario', 'accion', 'detalle']
@@ -112,6 +115,10 @@ function ss_() {
 var COLS_OK = {};
 function hoja_(n) {
   var s = ss_().getSheetByName(n);
+  if (!s && (n === 'Juego' || n === 'JuegoReservas')) {   // hs de juego: la pestaña aparece sola la primera vez
+    var hh = TABLAS[n]; s = ss_().insertSheet(n); s.getRange(1, 1, 1, hh.length).setValues([hh]); s.setFrozenRows(1);
+    hh.forEach(function (c, i) { if (!NUMS[c] && !BOOLS[c]) s.getRange(2, i + 1, Math.max(1, s.getMaxRows() - 1), 1).setNumberFormat('@'); });
+  }
   if (!s) throw err_('SIN_INSTALAR', 'Falta la pestaña ' + n + '. Usá el menú Weeb Reservas > Instalar.');
   var k = (typeof RV_CTX !== 'undefined' && RV_CTX ? RV_CTX.id : '') + '|' + n;
   if (!COLS_OK[k]) {   // si el sistema agregó columnas nuevas, las suma a la hoja (una vez por ejecución)
@@ -254,6 +261,7 @@ function agenda_(mes, admin) {
   var cfg = config_(), hoy = hoy_(), limite = sumarMeses_(hoy, cfg.mesesAnticipacion), minMs = ahora_() + cfg.antelacionHoras * 3600000;
   var salones = leer_('Salones').filter(function (s) { return s.activo; }), turnos = leer_('Turnos');
   var reservas = leer_('Reservas').filter(function (r) { return r.fecha.indexOf(mes) === 0; }), bloqs = leer_('Bloqueos');
+  var jov = admin ? leerOpc_('Juego').filter(function (x) { return x.fecha.indexOf(mes) === 0; }) : [], jres = admin ? leerOpc_('JuegoReservas').filter(function (r) { return r.fecha.indexOf(mes) === 0 && vigente_(r); }) : [];
   var y = +mes.slice(0, 4), m = +mes.slice(5), n = new Date(Date.UTC(y, m, 0)).getUTCDate(), dias = {};
   for (var d = 1; d <= n; d++) {
     var f = mes + '-' + (d < 10 ? '0' : '') + d, lista = [];
@@ -262,8 +270,9 @@ function agenda_(mes, admin) {
         var o = ocupante_(reservas, s.id, f, t.inicio, t.fin), b = bloqueoDe_(bloqs, s.id, f, t.id), estado = 'libre';
         if (o) estado = 'ocupado'; else if (b) estado = admin ? 'bloqueado' : 'no_disponible';
         else if (f < hoy || (!admin && (inicioMs_(f, t.inicio) < minMs || f > limite))) estado = 'no_disponible';
+        var jx = jov.filter(function (x) { return x.fecha === f && x.salonId === s.id && x.turnoId === t.id; })[0] || null;
         var it = { salonId: s.id, turnoId: t.id, etiqueta: t.etiqueta, inicio: t.inicio, fin: t.fin, precio: t.precio, sena: calcSena_(t, t.precio), estado: estado };
-        if (admin) { if (o) { it.reservaId = o.id; it.nombre = o.nombre; it.reservaEstado = o.estado; } if (b) { it.bloqueoId = b.id; it.motivo = b.motivo; } }
+        if (admin) { if (jx) it.juego = { id: jx.id, estado: jx.estado, inicio: jx.inicio, fin: jx.fin, cupo: jx.cupo, adultosMax: jx.adultosMax, precio: jx.precio, flyer: jx.flyer, mesas: jres.filter(function (r) { return r.juegoId === jx.id; }).length }; if (o) { it.reservaId = o.id; it.nombre = o.nombre; it.reservaEstado = o.estado; } if (b) { it.bloqueoId = b.id; it.motivo = b.motivo; } }
         lista.push(it);
       });
     });
@@ -447,6 +456,7 @@ function vencer_() {
     leer_('Reservas').forEach(function (r) {
       if (r.estado === 'pendiente' && r.venceEn && Date.parse(r.venceEn) <= ahora_()) { actualizar_('Reservas', r._row, { estado: 'vencida', actualizada: new Date(ahora_()).toISOString() }); n++; }
     });
+    n += juegoMantenimiento_();
     if (n) { invalidar_(); log_('sistema', 'vencer', n + ' reservas'); }
   });
 }
@@ -681,10 +691,11 @@ function caja_(mes) {
   var pagos = leer_('Pagos').filter(function (x) { return x.fecha.indexOf(mes) === 0; }), movs = leer_('Movimientos').filter(function (x) { return x.fecha.indexOf(mes) === 0; });
   var porMetodo = {}, ingRes = 0, ingExtra = 0, egr = 0;
   pagos.forEach(function (x) { ingRes += x.monto; porMetodo[x.metodo] = (porMetodo[x.metodo] || 0) + x.monto; });
-  movs.forEach(function (x) { if (x.tipo === 'ingreso') ingExtra += x.monto; else egr += x.monto; });
+  var pendJuego = 0;
+  movs.forEach(function (x) { if (x.estado === 'pendiente') pendJuego += x.monto; else if (x.tipo === 'ingreso') ingExtra += x.monto; else egr += x.monto; });   // lo pendiente (hs de juego sin cobrar) no suma al balance
   var porCobrar = leer_('Reservas').filter(function (r) { return r.fecha.indexOf(mes) === 0 && (r.estado === 'confirmada' || r.estado === 'pendiente') && r.saldo > 0; })
     .reduce(function (a, r) { return a + r.saldo; }, 0);
-  return { mes: mes, ingresosReservas: ingRes, ingresosExtra: ingExtra, egresos: egr, balance: ingRes + ingExtra - egr, porCobrar: porCobrar, porMetodo: porMetodo,
+  return { mes: mes, ingresosReservas: ingRes, ingresosExtra: ingExtra, egresos: egr, balance: ingRes + ingExtra - egr, porCobrar: porCobrar + pendJuego, pendienteJuego: pendJuego, porMetodo: porMetodo,
     pagos: pagos.map(limpio_), movimientos: movs.map(limpio_) };
 }
 
@@ -830,7 +841,7 @@ var ADMIN = {
     });
   },
   'admin.desbloquear': function (p, u) {
-    return conLock_(function () { var b = porId_('Bloqueos', txt_(p.id)); if (!b) throw err_('NO_ENCONTRADO', 'Bloqueo no encontrado'); borrar_('Bloqueos', b._row); invalidar_(); log_(u.email, 'desbloquear', b.id); return { id: b.id }; });
+    return conLock_(function () { var b = porId_('Bloqueos', txt_(p.id)); if (!b) throw err_('NO_ENCONTRADO', 'Bloqueo no encontrado'); juegoAlDesbloquear_(b); borrar_('Bloqueos', b._row); invalidar_(); log_(u.email, 'desbloquear', b.id); return { id: b.id }; });
   },
   'admin.salones': function () { return leer_('Salones').sort(function (a, b) { return a.orden - b.orden; }).map(limpio_); },
   'admin.guardarSalon': function (p, u) {
@@ -928,6 +939,10 @@ function despachar_(p, esPost) {
   if (a === 'config') return configPublica_();
   if (a === 'disponibilidad') return disponibilidad_(p);
   if (a === 'estado') return estado_(p);
+  if (a === 'juego') return juegoPublico_();
+  if (a === 'estadoJuego') return estadoJuego_(p);
+  if (a === 'reservarJuego') { if (!esPost) throw err_('METODO', 'Usá POST'); return reservarJuego_(p); }
+  if (a === 'comprobanteJuego') { if (!esPost) throw err_('METODO', 'Usá POST'); return comprobanteJuego_(p); }
   if (a === 'comprobante') { if (!esPost) throw err_('METODO', 'Usá POST'); return comprobante_(p); }
   if (a === 'olvideClave') { if (!esPost) throw err_('METODO', 'Usá POST'); return olvideClave_(p); }
   if (a === 'restablecerClave') { if (!esPost) throw err_('METODO', 'Usá POST'); return restablecerClave_(p); }
@@ -959,6 +974,196 @@ function doPost(e) {
     return despachar_(p, true);
   });
 }
+
+/* ───────────────────────── HS DE JUEGO ─────────────────────────
+   Familias que anotan a sus chicos para jugar (sin fiesta) en un horario que la dueña habilita a mano:
+   - desde un turno BLOQUEADO toca «Habilitar hs de juego» y elige horario, mesas, adultos por mesa, precio por niño y flyer;
+   - NADA es automático; el turno sigue bloqueado para cumples;
+   - cada familia ocupa 1 mesa (sin importar cuántos chicos); el cupo es de mesas; los adultos no pagan, cada niño paga el precio;
+   - la mesa queda guardada 15 minutos para pagar (transferencia + comprobante); la dueña confirma, marca efectivo o transferencia. */
+var JUEGO_HOLD_MIN = 15, JUEGO_CARPETA = 'Comprobantes hs de juego', JUEGO_DIAS_COMP = 7;
+function juegoSlots_(desde, hasta, admin) {
+  var salones = leer_('Salones'), ahora = ahora_();
+  var jr = leerOpc_('JuegoReservas').filter(function (r) { return r.fecha >= desde && r.fecha <= hasta && vigente_(r); });
+  return leerOpc_('Juego').filter(function (x) { return x.fecha >= desde && x.fecha <= hasta && (admin || (x.estado === 'abierto' && inicioMs_(x.fecha, x.fin) > ahora)); })
+    .sort(function (a, b) { var ka = a.fecha + a.inicio + a.salonId, kb = b.fecha + b.inicio + b.salonId; return ka < kb ? -1 : ka > kb ? 1 : 0; })
+    .map(function (x) {
+      var z = salones.filter(function (q) { return q.id === x.salonId; })[0], mias = jr.filter(function (r) { return r.juegoId === x.id; }), cupo = x.cupo > 0 ? x.cupo : 10;
+      return { id: x.id, fecha: x.fecha, salonId: x.salonId, salon: z ? z.nombre : '', turnoId: x.turnoId, inicio: x.inicio, fin: x.fin, estado: x.estado, cupo: cupo, precio: x.precio, adultosMax: x.adultosMax > 0 ? x.adultosMax : 4, flyer: x.flyer,
+        anotados: mias.length, chicos: mias.reduce(function (a, r) { return a + r.chicos; }, 0), libres: Math.max(0, cupo - mias.length), completo: mias.length >= cupo };
+    });
+}
+function juegoPublico_() { var hoy = hoy_(); return { slots: juegoSlots_(hoy, sumarDias_(hoy, 365), false) }; }
+/** Lo que ve la familia de su reserva (con los datos de pago mientras falte pagar). */
+function juegoPublica_(r) {
+  var cfg = config_(), z = porId_('Salones', r.salonId), vencida = r.estado === 'pendiente' && r.venceEn && Date.parse(r.venceEn) <= ahora_();
+  var o = { id: r.id, codigo: r.codigo, estado: vencida ? 'vencida' : r.estado, fecha: r.fecha, inicio: r.inicio, fin: r.fin, salon: z ? z.nombre : '', nombre: String(r.nombre || '').split(' ')[0], adultos: r.adultos, chicos: r.chicos, total: r.total, pagado: r.pagado, venceEn: r.venceEn,
+    comprobante: r.compFecha ? { nombre: r.compNombre, fecha: r.compFecha, borrado: !r.compId } : null };
+  if (r.estado === 'pendiente' && !vencida) o.transferencia = { titular: cfg.transferTitular, cbu: cfg.transferCbu, alias: cfg.transferAlias, banco: cfg.transferBanco, nota: cfg.transferNota, importe: r.total - r.pagado };
+  return o;
+}
+function reservarJuego_(p) {
+  if (txt_(p.web) !== '') throw err_('RECHAZADO', 'Solicitud rechazada');
+  var cfg = config_(), nombre = txt_(p.nombre, 80), tel = txt_(p.telefono, 30), email = txt_(p.email, 120).toLowerCase(), chicos = Math.round(Number(p.chicos)), adultos = Math.round(Number(p.adultos) || 0);
+  if (nombre.length < 3 || nombre.indexOf(' ') < 0) throw err_('DATO_INVALIDO', 'Escribí tu nombre y apellido');
+  if (tel.replace(/\D/g, '').length < 6) throw err_('DATO_INVALIDO', 'Escribí tu WhatsApp');
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw err_('DATO_INVALIDO', 'Escribí tu mail para mandarte la confirmación');
+  if (!(chicos >= 1 && chicos <= 50)) throw err_('DATO_INVALIDO', 'Poné cuántos niños van');
+  return conLock_(function () {
+    var sl = leerOpc_('Juego').filter(function (x) { return x.id === txt_(p.juegoId, 40); })[0];
+    if (!sl || sl.estado !== 'abierto' || inicioMs_(sl.fecha, sl.fin) <= ahora_()) throw err_('NO_DISPONIBLE', 'Ese horario ya no está disponible');
+    var tope = sl.adultosMax > 0 ? sl.adultosMax : 4;
+    if (adultos < 0 || adultos > tope) throw err_('CUPO', 'Por mesa entran hasta ' + tope + (tope === 1 ? ' adulto' : ' adultos'));
+    var vivas = leerOpc_('JuegoReservas').filter(function (r) { return vigente_(r); });
+    if (vivas.filter(function (r) { return r.juegoId === sl.id; }).length >= (sl.cupo > 0 ? sl.cupo : 10)) throw err_('COMPLETO', 'Se completaron las mesas de ese horario');
+    if (vivas.filter(function (r) { return r.estado === 'pendiente' && r.telefono === tel; }).length >= cfg.maxPendientesPorContacto) throw err_('DEMASIADAS_PENDIENTES', 'Ya tenés reservas esperando el pago. Completalas o escribinos.');
+    var total = chicos * sl.precio, conPago = total > 0 && cfg.pagoTransferencia, iso = new Date(ahora_()).toISOString();
+    var r = { id: nuevoId_('J'), codigo: nuevoCodigo_(), creada: iso, actualizada: iso, juegoId: sl.id, fecha: sl.fecha, salonId: sl.salonId, turnoId: sl.turnoId, inicio: sl.inicio, fin: sl.fin, nombre: nombre, telefono: tel, email: email, adultos: adultos, chicos: chicos,
+      total: total, pagado: 0, estado: conPago ? 'pendiente' : 'confirmada', origen: 'web', metodo: conPago ? 'transferencia' : '', venceEn: conPago ? new Date(ahora_() + JUEGO_HOLD_MIN * 60000).toISOString() : '' };
+    agregar_('JuegoReservas', r); juegoCaja_(r, 'web'); invalidar_(); log_('web', 'reservarJuego', r.id + ' ' + r.fecha + ' ' + r.inicio + ' x' + chicos);
+    juegoMail_(r); juegoAvisos_(r, 'Nueva reserva de hs de juego');
+    return juegoPublica_(r);
+  });
+}
+function estadoJuego_(p) {
+  var id = txt_(p.id, 40), cod = normCodigo_(p.codigo), cache = CacheService.getScriptCache(), r = null;
+  if (id) r = leerOpc_('JuegoReservas').filter(function (x) { return x.id === id; })[0] || null;
+  else if (cod) {
+    if (Number(cache.get('cf') || 0) >= 40) throw err_('DEMASIADOS_INTENTOS', 'Hubo demasiados intentos. Probá de nuevo en unos minutos.');
+    r = leerOpc_('JuegoReservas').filter(function (x) { return x.codigo === cod; })[0] || null; if (!r) cache.put('cf', String(Number(cache.get('cf') || 0) + 1), 900);
+  }
+  if (!r) throw err_('NO_ENCONTRADA', 'No encontramos esa reserva. Revisá el código.');
+  return juegoPublica_(r);
+}
+/* ── mails: a la familia (personalizado), a la dueña y a la encargada ── */
+function juegoMailHtml_(r, cfg) {
+  var col = /^#[0-9a-fA-F]{6}$/.test(cfg.colorPrincipal) ? cfg.colorPrincipal : '#8149bd', tc = mailTextoSobre_(col), z = porId_('Salones', r.salonId), conf = r.estado === 'confirmada', falta = r.total - r.pagado;
+  var link = cfg.urlReservas ? cfg.urlReservas.replace(/reservar\/?(\?.*)?$/, '') + 'hs-de-juego/?codigo=' + r.codigo : '';
+  var fila = function (k, v) { return '<tr><td style="padding:7px 0;color:#6b6480;font-size:14px;width:38%">' + k + '</td><td style="padding:7px 0;color:#1d1530;font-size:15px;font-weight:bold">' + v + '</td></tr>'; };
+  return '<div style="background:#f3f0f8;padding:24px 12px;font-family:Arial,Helvetica,sans-serif"><div style="max-width:540px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden">' +
+    '<div style="background:' + col + ';padding:22px 24px;text-align:center">' + (cfg.logoUrl && /^https?:/.test(cfg.logoUrl) ? '<img src="' + mailEsc_(cfg.logoUrl) + '" alt="' + mailEsc_(cfg.nombre) + '" height="64" style="height:64px;width:auto;border:0">' : '<span style="font-size:22px;font-weight:bold;color:' + tc + '">' + mailEsc_(cfg.nombre) + '</span>') + '</div>' +
+    '<div style="padding:26px 24px 8px"><h1 style="margin:0 0 6px;font-size:23px;color:#1d1530">' + (conf ? '¡Tu mesa en hs de juego está confirmada!' : '¡Reservaste tu mesa en hs de juego!') + '</h1><p style="margin:0;color:#4b4560;font-size:15px;line-height:1.5">Hola ' + mailEsc_(String(r.nombre).split(' ')[0]) + '! ' +
+    (conf ? 'Te esperamos para que los chicos jueguen.' : 'Para dejarla confirmada, pagá y subí el comprobante. <b>Tu mesa queda guardada ' + JUEGO_HOLD_MIN + ' minutos</b>: si no se paga en ese tiempo, se libera.') + '</p></div>' +
+    '<div style="padding:8px 24px"><div style="background:#f7f5fb;border-radius:12px;padding:6px 18px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">' +
+    fila('Día', mailEsc_(mailFecha_(r.fecha))) + fila('Horario', mailEsc_(r.inicio + ' a ' + r.fin + ' hs')) + fila('Salón', mailEsc_(z ? z.nombre : '')) + fila('Niños', String(r.chicos)) + fila('Adultos', String(r.adultos)) + fila('Total', mailPlata_(r.total)) + (r.pagado ? fila('Pagado', mailPlata_(r.pagado)) : '') + '</table></div></div>' +
+    (!conf && falta > 0 ? '<div style="padding:12px 24px 0"><div style="border-left:4px solid ' + col + ';background:#fbfaf6;padding:12px 14px;border-radius:6px;font-size:14px;color:#1d1530;line-height:1.5">Transferí <b>' + mailPlata_(falta) + '</b> a <b>' + mailEsc_(cfg.transferAlias) + '</b>' + (cfg.transferTitular ? ' (' + mailEsc_(cfg.transferTitular) + ')' : '') + ' y subí el comprobante desde el botón de abajo, o mandalo por WhatsApp.</div></div>' : '') +
+    '<div style="padding:18px 24px 6px;text-align:center"><div style="color:#6b6480;font-size:13px">Tu código</div><div style="font-size:30px;font-weight:bold;letter-spacing:4px;color:#1d1530;margin:4px 0 14px">' + mailEsc_(r.codigo) + '</div>' +
+    (link ? '<a href="' + mailEsc_(link) + '" style="background:' + col + ';color:' + tc + ';padding:14px 26px;border-radius:10px;text-decoration:none;display:inline-block;font-weight:bold;font-size:16px">' + (conf ? 'Ver mi reserva' : 'Subir comprobante') + '</a>' : '') + '</div>' +
+    '<div style="padding:18px 24px 24px;text-align:center;color:#8a8498;font-size:12px;border-top:1px solid #eee;margin-top:18px">' + mailEsc_(cfg.nombre) + (cfg.direccion ? ' · ' + mailEsc_(cfg.direccion) : '') + '</div></div></div>';
+}
+function juegoMail_(r) {
+  try { var cfg = config_(); if (!cfg.emailsActivos || !r.email || MailApp.getRemainingDailyQuota() < 6) return;
+    MailApp.sendEmail({ to: r.email, subject: (r.estado === 'confirmada' ? 'Mesa confirmada en hs de juego' : 'Reservaste tu mesa en hs de juego') + ' · ' + cfg.nombre, htmlBody: juegoMailHtml_(r, cfg), name: cfg.nombre });
+  } catch (e) { log_('sistema', 'mail_error', e.message); }
+}
+/** Aviso a la dueña (con plata y contacto) y a las encargadas (solo lo que necesitan para preparar, sin plata). */
+function juegoAvisos_(r, titulo) {
+  try { var cfg = config_(); if (!cfg.emailsActivos) return;
+    var z = porId_('Salones', r.salonId), cuando = mailFecha_(r.fecha) + ', ' + r.inicio + ' a ' + r.fin + ' hs · ' + (z ? z.nombre : ''), quien = r.nombre + ' (' + r.adultos + (r.adultos === 1 ? ' adulto' : ' adultos') + ' y ' + r.chicos + (r.chicos === 1 ? ' niño' : ' niños') + ')';
+    var enviar = function (to, txt) { if (to && MailApp.getRemainingDailyQuota() > 3) MailApp.sendEmail({ to: to, subject: '[hs de juego] ' + titulo + ' · ' + r.nombre, htmlBody: '<p style="font-family:Arial,sans-serif;font-size:15px">' + mailEsc_(txt) + '</p>', name: cfg.nombre }); };
+    enviar(cfg.emailAdmin, titulo + ': ' + quien + ' · ' + cuando + ' · Total ' + mailPlata_(r.total) + ' · Estado: ' + (r.estado === 'confirmada' ? 'pagada' : 'falta el pago') + ' · WhatsApp ' + r.telefono + '.');
+    leerOpc_('Usuarios').filter(function (u) { return u.rol === 'encargada' && u.activo && u.email; }).forEach(function (u) { enviar(u.email, titulo + ': ' + quien + ' · ' + cuando + '.'); });
+  } catch (e) { log_('sistema', 'mail_error', e.message); }
+}
+/* ── comprobantes (la imagen se borra a los 7 días, el dato queda) ── */
+function juegoArchivo_(p) {
+  var tipo = txt_(p.tipo, 60).toLowerCase(), ext = COMP_TIPOS[tipo]; if (!ext) throw err_('ARCHIVO_INVALIDO', 'Subí una foto (JPG, PNG) o un PDF');
+  var b64 = String(p.datos || '').replace(/^data:[^,]*,/, '').replace(/\s/g, ''); if (!b64) throw err_('ARCHIVO_INVALIDO', 'El archivo llegó vacío');
+  if (b64.length * 0.75 > COMP_MAX) throw err_('ARCHIVO_GRANDE', 'El archivo pesa demasiado (máximo 6 MB)');
+  return { tipo: tipo, ext: ext, bytes: Utilities.base64Decode(b64), nombre: txt_(p.nombre, 80).replace(/[\\\/:*?"<>|]/g, '_') || ('comprobante.' + ext) };
+}
+function juegoGuardarComp_(id, p, origen) {
+  var r = leerOpc_('JuegoReservas').filter(function (x) { return x.id === id; })[0]; if (!r) throw err_('NO_ENCONTRADA', 'Reserva no encontrada');
+  var a = juegoArchivo_(p), it = DriveApp.getFoldersByName(JUEGO_CARPETA), c = it.hasNext() ? it.next() : DriveApp.createFolder(JUEGO_CARPETA), f = c.createFile(Utilities.newBlob(a.bytes, a.tipo, 'Juego ' + r.id + ' · ' + r.nombre + '.' + a.ext));
+  try { f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) { log_('sistema', 'comp_share_error', e.message); }
+  compBorrarArchivo_(r.compId);
+  actualizar_('JuegoReservas', r._row, { compId: f.getId(), compUrl: f.getUrl(), compNombre: a.nombre, compTipo: a.ext, compFecha: new Date(ahora_()).toISOString(), compOrigen: origen, compBorrarEn: new Date(ahora_() + JUEGO_DIAS_COMP * 864e5).toISOString(), actualizada: new Date(ahora_()).toISOString() });
+  invalidar_(); return id;
+}
+function comprobanteJuego_(p) {
+  var id = txt_(p.id, 40), r = leerOpc_('JuegoReservas').filter(function (x) { return x.id === id; })[0]; if (!r) throw err_('NO_ENCONTRADA', 'Reserva no encontrada');
+  if (r.estado === 'cancelada' || r.estado === 'vencida' || (r.estado === 'pendiente' && r.venceEn && Date.parse(r.venceEn) <= ahora_())) throw err_('NO_DISPONIBLE', 'Esta reserva ya no admite comprobantes. Escribinos por WhatsApp.');
+  return conLock_(function () {
+    juegoGuardarComp_(id, p, 'cliente'); log_('web', 'comprobanteJuego', id); r = leerOpc_('JuegoReservas').filter(function (x) { return x.id === id; })[0]; juegoAvisos_(r, 'Subieron el comprobante');
+    return juegoPublica_(r);
+  });
+}
+/** Vence las que no pagaron en 15 minutos (libera la mesa y saca el pendiente de la caja) y borra imágenes de comprobantes con más de 7 días. */
+function juegoMantenimiento_() {
+  var n = 0;
+  leerOpc_('JuegoReservas').forEach(function (r) {
+    if (r.estado === 'pendiente' && r.venceEn && Date.parse(r.venceEn) <= ahora_()) { actualizar_('JuegoReservas', r._row, { estado: 'vencida', actualizada: new Date(ahora_()).toISOString() }); juegoCaja_(leerOpc_('JuegoReservas').filter(function (x) { return x.id === r.id; })[0], 'sistema'); n++; }
+    else if (r.compId && r.compBorrarEn && Date.parse(r.compBorrarEn) <= ahora_()) { compBorrarArchivo_(r.compId); actualizar_('JuegoReservas', r._row, { compId: '', compUrl: '', compTipo: '', compNombre: 'Imagen borrada a los 7 días', compBorrarEn: '' }); }
+  });
+  return n;
+}
+/** Lo cobrado (o pendiente) de hs de juego queda en la caja: una fila por reserva. */
+function juegoCaja_(r, usuario) {
+  var d = r.nombre + ' · ' + r.chicos + (r.chicos === 1 ? ' niño' : ' niños') + ' · hs de juego ' + r.fecha + ' ' + r.inicio, m = leerOpc_('Movimientos').filter(function (x) { return x.ref === r.id; })[0], viva = r.estado === 'pendiente' || r.estado === 'confirmada';
+  if (!viva) { if (m && !(r.pagado > 0)) borrar_('Movimientos', m._row); return; }
+  if (!(r.pagado > 0) && !(r.total > 0)) { if (m) borrar_('Movimientos', m._row); return; }
+  var cobrado = r.pagado > 0, monto = cobrado ? r.pagado : r.total, est = cobrado ? 'confirmado' : 'pendiente';
+  if (m) actualizar_('Movimientos', m._row, { monto: monto, descripcion: d, estado: est });
+  else agregar_('Movimientos', { id: nuevoId_('M'), fecha: hoy_(), tipo: 'ingreso', categoria: 'Hs de juego', monto: monto, descripcion: d, creado: new Date(ahora_()).toISOString(), usuario: usuario || '', ref: r.id, estado: est });
+}
+/** Al sacar un bloqueo: si ese horario tenía hs de juego sin familias, se saca; con familias anotadas no se puede. */
+function juegoAlDesbloquear_(b) {
+  var resto = leer_('Bloqueos').filter(function (x) { return x.id !== b.id; });
+  var tocados = leerOpc_('Juego').filter(function (x) { return x.fecha >= b.desde && x.fecha <= (b.hasta || b.desde) && (!b.salonId || b.salonId === '*' || b.salonId === x.salonId) && (!b.turnoId || b.turnoId === '*' || b.turnoId === x.turnoId) && !bloqueoDe_(resto, x.salonId, x.fecha, x.turnoId); });
+  var vivas = leerOpc_('JuegoReservas').filter(function (r) { return vigente_(r); });
+  tocados.forEach(function (x) { if (vivas.some(function (r) { return r.juegoId === x.id; })) throw err_('CON_ANOTADOS', 'Hay familias anotadas en hs de juego en ese horario. Cancelá esas reservas primero.'); });
+  tocados.sort(function (a, c) { return c._row - a._row; }).forEach(function (x) { borrar_('Juego', x._row); });
+}
+function juegoDetalle_(id) {
+  var r = leerOpc_('JuegoReservas').filter(function (x) { return x.id === id; })[0]; if (!r) throw err_('NO_ENCONTRADA', 'Reserva no encontrada');
+  var z = porId_('Salones', r.salonId), v = r.estado === 'pendiente' && r.venceEn && Date.parse(r.venceEn) <= ahora_(), o = limpio_(r); if (v) o.estado = 'vencida';
+  return { reserva: o, salon: z ? z.nombre : '', comprobante: r.compFecha ? { id: r.compId, url: r.compUrl, nombre: r.compNombre, tipo: r.compTipo, fecha: r.compFecha, origen: r.compOrigen, borraEn: r.compBorrarEn, borrado: !r.compId } : null };
+}
+Object.assign(ADMIN, {
+  'admin.juego': function (p) {
+    var hoy = hoy_(), d = fechaOk_(p.desde) ? p.desde : sumarDias_(hoy, -30), h = fechaOk_(p.hasta) ? p.hasta : sumarDias_(hoy, 365), z = leer_('Salones');
+    var reservas = leerOpc_('JuegoReservas').filter(function (r) { return r.fecha >= d && r.fecha <= h; }).sort(function (a, b) { var ka = a.fecha + a.inicio + a.creada, kb = b.fecha + b.inicio + b.creada; return ka < kb ? -1 : 1; }).map(function (r) {
+      var o = limpio_(r), s = z.filter(function (q) { return q.id === r.salonId; })[0]; o.salon = s ? s.nombre : ''; if (o.estado === 'pendiente' && o.venceEn && Date.parse(o.venceEn) <= ahora_()) o.estado = 'vencida'; delete o.compUrl; delete o.compId; return o; });
+    return { hoy: hoy, slots: juegoSlots_(d, h, true), reservas: reservas };
+  },
+  /** estado: abierto (crea o cambia) | cerrado (no se anotan más) | quitar (saca hs de juego del horario, solo sin familias). Sobre un turno bloqueado. */
+  'admin.juegoSlot': function (p, u) {
+    var f = txt_(p.fecha, 10), est = txt_(p.estado, 10) || 'abierto'; if (!fechaOk_(f)) throw err_('DATO_INVALIDO', 'Fecha inválida');
+    if (['abierto', 'cerrado', 'quitar'].indexOf(est) < 0) throw err_('DATO_INVALIDO', 'Estado inválido');
+    return conLock_(function () {
+      var t = porId_('Turnos', txt_(p.turnoId)), z = t && porId_('Salones', t.salonId); if (!t || !z || !turnoAplica_(t, f)) throw err_('TURNO_INVALIDO', 'Ese turno no existe ese día');
+      var x = leerOpc_('Juego').filter(function (q) { return q.fecha === f && q.salonId === z.id && q.turnoId === t.id; })[0] || null, mesas = x ? leerOpc_('JuegoReservas').filter(function (r) { return r.juegoId === x.id && vigente_(r); }).length : 0;
+      if (est === 'quitar') { if (mesas) throw err_('CON_ANOTADOS', 'Hay familias anotadas: cancelá esas reservas primero.'); if (x) borrar_('Juego', x._row); invalidar_(); log_(u.email, 'juegoQuitar', f + ' ' + t.id); return { ok: true }; }
+      if (!bloqueoDe_(leer_('Bloqueos'), z.id, f, t.id)) throw err_('NO_BLOQUEADO', 'Primero bloqueá ese horario para habilitarlo como hs de juego');
+      var ini = txt_(p.inicio, 5) || (x && x.inicio) || t.inicio, fin = txt_(p.fin, 5) || (x && x.fin) || t.fin;
+      if (!horaOk_(ini) || !horaOk_(fin) || fin <= ini) throw err_('DATO_INVALIDO', 'Revisá el horario de comienzo y de fin');
+      var cupo = Math.round(Number(p.cupo)), ad = Math.round(Number(p.adultosMax)), pr = Math.round(Number(p.precio));
+      if (!(cupo >= 1 && cupo <= 200)) throw err_('DATO_INVALIDO', 'Poné cuántas mesas hay (1 o más)'); if (cupo < mesas) throw err_('CUPO', 'Ya hay ' + mesas + ' mesas anotadas: no podés dejar menos');
+      if (!(ad >= 1 && ad <= 20)) throw err_('DATO_INVALIDO', 'Poné cuántos adultos entran por mesa'); if (!(pr >= 0)) throw err_('DATO_INVALIDO', 'Poné el precio por niño');
+      var o = { fecha: f, salonId: z.id, turnoId: t.id, estado: est, inicio: ini, fin: fin, cupo: cupo, adultosMax: ad, precio: pr, flyer: txt_(p.flyer, 500) };
+      if (x) actualizar_('Juego', x._row, o); else { o.id = nuevoId_('JG'); o.creado = new Date(ahora_()).toISOString(); agregar_('Juego', o); }
+      invalidar_(); log_(u.email, 'juegoSlot', f + ' ' + t.id + ' ' + est); return { ok: true };
+    });
+  },
+  'admin.juegoReserva': function (p) { return juegoDetalle_(txt_(p.id, 40)); },
+  /** La dueña confirma el pago: marca efectivo o transferencia (y el monto, por defecto el total). Entra a la caja y le llega el mail a la familia. */
+  'admin.juegoPago': function (p, u) { return conLock_(function () {
+    var r = leerOpc_('JuegoReservas').filter(function (x) { return x.id === txt_(p.id, 40); })[0]; if (!r) throw err_('NO_ENCONTRADA', 'Reserva no encontrada');
+    if (r.estado === 'cancelada') throw err_('ESTADO', 'La reserva está cancelada');
+    var metodo = txt_(p.metodo, 20); if (['efectivo', 'transferencia'].indexOf(metodo) < 0) throw err_('DATO_INVALIDO', 'Elegí si pagaron en efectivo o por transferencia');
+    var monto = p.monto != null && p.monto !== '' ? num_(p.monto, 'monto') : r.total; if (monto < 0) throw err_('DATO_INVALIDO', 'Monto inválido');
+    var antes = r.estado; actualizar_('JuegoReservas', r._row, { pagado: monto, metodo: metodo, estado: 'confirmada', venceEn: '', actualizada: new Date(ahora_()).toISOString() });
+    r = leerOpc_('JuegoReservas').filter(function (x) { return x.id === r.id; })[0]; juegoCaja_(r, u.email); invalidar_(); log_(u.email, 'juegoPago', r.id + ' ' + metodo + ' ' + monto);
+    if (antes !== 'confirmada') { juegoMail_(r); juegoAvisos_(r, 'Mesa confirmada'); }
+    return juegoDetalle_(r.id); }); },
+  'admin.juegoCancelar': function (p, u) { return conLock_(function () {
+    var r = leerOpc_('JuegoReservas').filter(function (x) { return x.id === txt_(p.id, 40); })[0]; if (!r) throw err_('NO_ENCONTRADA', 'Reserva no encontrada');
+    actualizar_('JuegoReservas', r._row, { estado: 'cancelada', venceEn: '', actualizada: new Date(ahora_()).toISOString() }); juegoCaja_(leerOpc_('JuegoReservas').filter(function (x) { return x.id === r.id; })[0], u.email); invalidar_(); log_(u.email, 'juegoCancelar', r.id); return juegoDetalle_(r.id); }); },
+  'admin.juegoComprobante': function (p, u) { return conLock_(function () { var id = txt_(p.id, 40); juegoGuardarComp_(id, p, 'dueño'); log_(u.email, 'juegoComprobante', id); return juegoDetalle_(id); }); },
+  'admin.juegoComprobanteEliminar': function (p, u) { return conLock_(function () {
+    var r = leerOpc_('JuegoReservas').filter(function (x) { return x.id === txt_(p.id, 40); })[0]; if (!r) throw err_('NO_ENCONTRADA', 'Reserva no encontrada');
+    compBorrarArchivo_(r.compId); actualizar_('JuegoReservas', r._row, { compId: '', compUrl: '', compTipo: '', compNombre: 'Imagen borrada', compBorrarEn: '' }); invalidar_(); return juegoDetalle_(r.id); }); }
+});
 
 /* ───────────────────────── instalación / mantenimiento ───────────────────────── */
 var PLANES_EJEMPLO = [
