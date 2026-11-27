@@ -6955,7 +6955,8 @@ function PageOverlay() {
     if (!cur) return undefined;
     const l = window.__lenis; if (l &amp;&amp; l.stop) l.stop();
     const prev = document.documentElement.style.overflow; document.documentElement.style.overflow = "hidden";
-    return () =&gt; { document.documentElement.style.overflow = prev; if (l &amp;&amp; l.start) l.start(); };
+    try { window.dispatchEvent(new CustomEvent("wb-pausa-pagina", { detail: true })); } catch (_) {}
+    return () =&gt; { document.documentElement.style.overflow = prev; if (l &amp;&amp; l.start) l.start(); try { window.dispatchEvent(new CustomEvent("wb-pausa-pagina", { detail: false })); } catch (_) {} };
   }, [cur]);
   return pages.map((h) =&gt; (
     &lt;div key={h} className={"resv" + (h === cur ? " on" : "")} aria-hidden={h !== cur}&gt;&lt;iframe src={h + (h.indexOf("?") &gt;= 0 ? "&amp;" : "?") + "embed=1"} title="Página del sitio" /&gt;&lt;/div&gt;
@@ -7783,10 +7784,13 @@ function FrameGate({ active }) {
   const setFrameloop = useThree((st) =&gt; st.setFrameloop);
   const invalidate = useThree((st) =&gt; st.invalidate);
   const pausa = useRef(false);
-  const aplicar = () =&gt; { try { const on = active &amp;&amp; !pausa.current; setFrameloop(on ? "always" : "never"); if (on) invalidate(); } catch (e) { /* sin R3F */ } };
+  const pagina = useRef(false);
+  const aplicar = () =&gt; { try { const on = active &amp;&amp; !pausa.current &amp;&amp; !pagina.current; setFrameloop(on ? "always" : "never"); if (on) invalidate(); } catch (e) { /* sin R3F */ } };
   useEffect(() =&gt; { aplicar(); }, [active]);
   /* el menú de iconos pausa el 3D mientras se usa: el celular queda libre para moverlo suave */
   useEffect(() =&gt; { const h = (e) =&gt; { pausa.current = !!(e &amp;&amp; e.detail); aplicar(); }; window.addEventListener("wb-pausa-3d", h); return () =&gt; window.removeEventListener("wb-pausa-3d", h); }, [active]);
+  /* una página abierta encima (Reservar) pausa el 3D de abajo: no se ve y solo gasta batería y trabaja de más */
+  useEffect(() =&gt; { const h = (e) =&gt; { pagina.current = !!(e &amp;&amp; e.detail); aplicar(); }; window.addEventListener("wb-pausa-pagina", h); return () =&gt; window.removeEventListener("wb-pausa-pagina", h); }, [active]);
   return null;
 }
 
