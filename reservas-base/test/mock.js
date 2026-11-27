@@ -10,6 +10,9 @@ function crear(opts = {}) {
     return Object.assign(h, {
       getLastRow() { let l = 0; h.filas.forEach((f, i) => { if (f.some(x => x !== '' && x != null)) l = i + 1; }); return l; },
       getMaxRows() { return 1000; },
+      getLastColumn() { let l = 0; h.filas.forEach(f => f.forEach((x, j) => { if (x !== '' && x != null) l = Math.max(l, j + 1); })); return l; },
+      getMaxColumns() { return Math.max(26, maxCols()); },
+      insertColumnsAfter() {},
       setFrozenRows(n) { h.frozen = n; },
       appendRow(a) { h.filas[h.getLastRow()] = a.slice(); },
       deleteRow(r) { h.filas.splice(r - 1, 1); },

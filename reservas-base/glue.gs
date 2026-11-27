@@ -37,12 +37,10 @@ function rvQuitar_(id) { id = rvIdOk_(id); if (!id) return false; PropertiesServ
 function rvPorCliente_(fn) { rvClientes_().forEach(function (id) { try { if (rvUsar_(id)) fn(); } catch (e) {} }); }
 function rvVencerTodos_() { rvPorCliente_(vencer_); }
 function rvBackupTodos_() { rvPorCliente_(backup_); }
-function rvLimpiarTodos_() { rvPorCliente_(limpiarComprobantes_); }
 function rvInstalarTriggers_() {
   ScriptApp.getProjectTriggers().forEach(function (t) { var f = t.getHandlerFunction(); if (f === 'rvVencerTodos_' || f === 'rvBackupTodos_' || f === 'rvLimpiarTodos_') ScriptApp.deleteTrigger(t); });
   ScriptApp.newTrigger('rvVencerTodos_').timeBased().everyMinutes(30).create();
   ScriptApp.newTrigger('rvBackupTodos_').timeBased().everyDays(1).atHour(3).create();
-  ScriptApp.newTrigger('rvLimpiarTodos_').timeBased().everyDays(1).atHour(4).create();
   return true;
 }
 
@@ -70,7 +68,7 @@ function rvImportar_(id, origenId) {
     var cv = cb.getDataRange().getValues(), idx = {}; cv.forEach(function (r, i) { idx[String(r[0])] = i; });
     var n2 = 0;
     ca.getDataRange().getValues().slice(1).forEach(function (r) {
-      var k = String(r[0] || ''); if (!k || k === 'emailAdmin' || /^juego/.test(k) || r[1] === '' || r[1] === null) return;
+      var k = String(r[0] || ''); if (!k || k === 'emailAdmin' || r[1] === '' || r[1] === null) return;
       if (idx[k] !== undefined) cb.getRange(idx[k] + 1, 2).setValue(r[1]); else cb.appendRow([k, r[1]]); n2++;
     });
     res.Config = n2;

@@ -25,8 +25,8 @@ function conTurnos(a) {
 const cli = (o = {}) => Object.assign({ action: 'reservar', nombre: 'Juan Gómez', telefono: '+54 9 11 5555-1234', email: 'juan@mail.com', fecha: '2026-11-07', personas: 20, metodo: 'transferencia' }, o);
 
 console.log('Instalación');
-t('crea todas las hojas y tareas automáticas', () => { const a = crear(); a.setNow(NOW); a.run('instalar()'); ['Config', 'Salones', 'Turnos', 'Bloqueos', 'Reservas', 'Pagos', 'Movimientos', 'Usuarios', 'Log'].forEach(h => assert(a.hojas[h], h)); assert.equal(a.triggers.length, 3); });
-t('instalar dos veces no duplica salón ni config', () => { const a = crear(); a.run('instalar()'); a.run('instalar()'); assert.equal(a.run('leer_("Salones").length'), 1); assert.equal(a.run('leer_("Config").length'), a.run('Object.keys(CFG_DEF).length')); assert.equal(a.triggers.length, 3); });
+t('crea todas las hojas y tareas automáticas', () => { const a = crear(); a.setNow(NOW); a.run('instalar()'); ['Config', 'Salones', 'Turnos', 'Bloqueos', 'Reservas', 'Pagos', 'Movimientos', 'Usuarios', 'Log'].forEach(h => assert(a.hojas[h], h)); assert.equal(a.triggers.length, 2); });
+t('instalar dos veces no duplica salón ni config', () => { const a = crear(); a.run('instalar()'); a.run('instalar()'); assert.equal(a.run('leer_("Salones").length'), 1); assert.equal(a.run('leer_("Config").length'), a.run('Object.keys(CFG_DEF).length')); assert.equal(a.triggers.length, 2); });
 t('las columnas de texto quedan en formato texto plano', () => { const a = crear(); a.run('instalar()'); assert.equal(a.hojas.Reservas.formatos[5], '@'); assert.equal(a.hojas.Reservas.formatos[14], undefined); });
 
 console.log('Público');
@@ -340,87 +340,81 @@ t('fotos de la página: se suben desde el panel, quedan visibles y se limpian al
 });
 
 
-console.log('Hora de juego');
-const png64 = Buffer.from('iVBORw0KGgo=', 'base64').toString('base64');
-function conJuego(a) {
-  const ids = conTurnos(a); a.adm('admin.guardarConfig', { valores: { juegoActivo: true, juegoCupo: 20, juegoPrecio: 20000, juegoDiasAntes: 5, pagoTransferencia: true } });
-  return ids;
+console.log('Cumpleañero y extras');
+t('con pedirNino: pide nombre y edad, suma extras y guarda todo; el combo fija 30 y 30', () => {
+  const a = nuevo(); const [t1] = conTurnos(a);
+  a.adm('admin.guardarConfig', { valores: { pedirNino: true, extraPrecio: 20000, notaEjemplo: 'Prefiero pizzetas', urlReservas: 'https://x.com/reservar/', colorPrincipal: '#03ad55' } });
+  const pl = a.adm('admin.guardarPlan', { nombre: 'Combo 1', precio: 890000, senaTipo: 'pct', senaValor: 50, descTotal: 25, ninos: 30, adultos: 30 }).data;
+  const pub = a.get({ action: 'config' }).data; assert.equal(pub.pedirNino, true); assert.equal(pub.extraPrecio, 20000); assert.equal(pub.planes[0].ninos, 30);
+  let r = a.post(cli({ turnoId: t1, planId: pl.id })); assert.equal(r.ok, false, 'sin nombre del niño no debería reservar');
+  r = a.post(cli({ turnoId: t1, planId: pl.id, ninoNombre: 'Mateo', ninoEdad: 7, ninosExtra: 2, adultosExtra: 1 })); assert(r.ok, JSON.stringify(r));
+  assert.equal(r.data.total, 890000 + 60000); assert.equal(r.data.planMonto, 890000); assert.equal(r.data.extrasMonto, 60000); assert.equal(r.data.sena, 475000); assert.equal(r.data.personas, 63); assert.equal(r.data.ninoNombre, 'Mateo'); assert.equal(r.data.ninosExtra, 2);
+  const m = a.mails.find(x => x.to === 'juan@mail.com'); assert(m.htmlBody.includes('Mateo')); assert(m.htmlBody.includes('https://x.com/reservar/?codigo=' + r.data.codigo)); assert(/height="64"/.test(m.htmlBody) || m.htmlBody.includes('Hecho con tuweeb'));
+});
+t('con pago total el descuento se aplica también a los extras', () => {
+  const a = nuevo(); const [t1] = conTurnos(a);
+  a.adm('admin.guardarConfig', { valores: { pedirNino: true, extraPrecio: 20000 } });
+  const pl = a.adm('admin.guardarPlan', { nombre: 'Combo 1', precio: 800000, senaTipo: 'pct', senaValor: 50, descTotal: 25, ninos: 30, adultos: 30 }).data;
+  const r = a.post(cli({ turnoId: t1, planId: pl.id, ninoNombre: 'Sofi', ninoEdad: 5, adultosExtra: 2, pagoTotal: true })).data;
+  assert.equal(r.total, 630000); assert.equal(r.sena, 630000);
+});
+t('sin pedirNino todo sigue igual (no pide ni guarda el niño)', () => {
+  const a = nuevo(); const [t1] = conTurnos(a); const r = a.post(cli({ turnoId: t1, ninoNombre: 'X', ninosExtra: 5 })).data;
+  assert.equal(r.total, 100000); assert.equal(r.ninoNombre, '');
+});
+
+console.log('Encargada');
+function conEncargada(a) {   // dueña + una encargada con su propia clave, una reserva pendiente y otra confirmada
+  const [t1, t2] = conTurnos(a);
+  assert(a.adm('admin.encargadaGuardar', { email: 'Enc@mail.com', nombre: 'Lu', clave: 'clave-encargada-1' }).ok);
+  const enc = a.post({ action: 'login', email: 'enc@mail.com', clave: 'clave-encargada-1' }); assert(enc.ok, JSON.stringify(enc)); assert.equal(enc.data.rol, 'encargada');
+  a.enc = (accion, p = {}) => a.post(Object.assign({ action: accion, token: enc.data.token }, p));
+  const pend = a.post(cli({ turnoId: t1 })).data, conf = a.post(cli({ turnoId: t2, nombre: 'Ana Confirmada', fecha: '2026-11-07' })).data;
+  assert(a.adm('admin.actualizarReserva', { id: conf.id, estado: 'confirmada' }).ok);
+  return { pend, conf };
 }
-const jres = (o = {}) => Object.assign({ action: 'reservarJuego', nombre: 'Marta Díaz', telefono: '+54 9 299 555-1234', chicos: 5, fecha: '2026-11-07', salonId: 'S1' }, o);
-t('apagada por defecto: no se ve ni se puede reservar', () => {
-  const a = nuevo(); conTurnos(a); const j = a.get({ action: 'juego' }); assert(j.ok); assert.equal(j.data.activo, false); assert.equal(j.data.slots.length, 0);
-  assert.equal(a.post(jres({ turnoId: 'x' })).error, 'NO_DISPONIBLE');
+t('la encargada ve solo reservas confirmadas, sin plata ni contacto', () => {
+  const a = nuevo(); const { pend, conf } = conEncargada(a); const l = a.enc('admin.encReservas');
+  assert(l.ok, JSON.stringify(l)); assert.equal(l.data.length, 1); assert.equal(l.data[0].id, conf.id); assert(!l.data.some(x => x.id === pend.id));
+  const txt = JSON.stringify(l.data); ['total', 'sena', 'pagado', 'saldo', 'telefono', 'email', 'comp', 'metodo'].forEach(k => assert(!new RegExp('"' + k, 'i').test(txt), 'filtra ' + k));
 });
-t('cerca de la fecha los turnos sin cumple se ofrecen solos; lejos, no', () => {
-  const a = nuevo(); conJuego(a); const j = a.get({ action: 'juego' }).data; const fechas = [...new Set(j.slots.map(x => x.fecha))];
-  assert.deepEqual(fechas, ['2026-11-03', '2026-11-04', '2026-11-06', '2026-11-07']);   // hoy lunes 2 (ya pasó el turno de las 16): la ventana de 5 días llega al sábado 7; el domingo 8 queda afuera
-  assert.equal(j.slots.length, 6); assert.equal(j.slots[0].libres, 20); assert.equal(j.slots[0].precio, 20000);
-  assert(!('estado' in j.slots[0]));
+t('las reservas que ya pasaron no aparecen', () => {
+  const a = nuevo(); conEncargada(a); a.setNow(Date.parse('2026-11-09T12:00:00-03:00')); assert.equal(a.enc('admin.encReservas').data.length, 0);
 });
-t('reservar: descuenta cupo, calcula total, pide transferencia y avisa a la dueña', () => {
-  const a = nuevo(); const [t1] = conJuego(a); const r = a.post(jres({ turnoId: t1 })); assert(r.ok, JSON.stringify(r));
-  assert.equal(r.data.total, 100000); assert.equal(r.data.estado, 'pendiente'); assert.equal(r.data.transferencia.importe, 100000); assert(r.data.codigo);
-  assert.equal(a.get({ action: 'juego' }).data.slots.filter(x => x.turnoId === t1 && x.fecha === '2026-11-07')[0].libres, 15);
-  assert(a.mails.some(m => /hora de juego/i.test(m.subject)));
-  assert.equal(a.get({ action: 'estadoJuego', codigo: r.data.codigo }).data.id, r.data.id);
+t('la encargada no puede usar nada del resto del panel', () => {
+  const a = nuevo(); conEncargada(a);
+  ['admin.reservas', 'admin.caja', 'admin.config', 'admin.guardarConfig', 'admin.turnos', 'admin.pago', 'admin.cancelar', 'admin.encargadas', 'admin.encargadaGuardar', 'admin.encargadaQuitar', 'admin.reserva'].forEach(ac => assert.equal(a.enc(ac, { mes: '2026-11', id: 'x', email: 'enc@mail.com' }).error, 'NO_AUTORIZADO', ac));
 });
-t('cupo: no deja pasarse, avisa cuántos quedan y marca completo en cero', () => {
-  const a = nuevo(); const [t1] = conJuego(a);
-  assert.equal(a.post(jres({ turnoId: t1, chicos: 21 })).error, 'CUPO'); assert.equal(a.post(jres({ turnoId: t1, chicos: 0 })).error, 'DATO_INVALIDO');
-  assert(a.post(jres({ turnoId: t1, chicos: 20 })).ok);
-  assert.equal(a.post(jres({ turnoId: t1, chicos: 1, telefono: '+54 9 299 555-9999' })).error, 'COMPLETO');
-  const s = a.get({ action: 'juego' }).data.slots.filter(x => x.turnoId === t1 && x.fecha === '2026-11-07')[0]; assert.equal(s.completo, true); assert.equal(s.libres, 0);
+t('marcar listo y desmarcar; la dueña lo ve', () => {
+  const a = nuevo(); const { conf } = conEncargada(a);
+  const r = a.enc('admin.encListo', { id: conf.id, listo: true }); assert(r.ok && r.data.listo && r.data.listoPor === 'Lu', JSON.stringify(r));
+  assert.equal(a.enc('admin.encReservas').data[0].listo, true); assert.equal(a.adm('admin.reserva', { id: conf.id }).data.reserva.listo, true);
+  a.enc('admin.encListo', { id: conf.id, listo: false }); assert.equal(a.enc('admin.encReservas').data[0].listo, false);
 });
-t('un cumple reservado saca ese turno de hora de juego; chicos anotados sacan el cumple online', () => {
-  const a = nuevo(); const [t1, t2] = conJuego(a);
-  assert(a.post(cli({ turnoId: t2, fecha: '2026-11-07' })).ok);   // cumple a la noche
-  let s = a.get({ action: 'juego' }).data.slots.filter(x => x.fecha === '2026-11-07'); assert.deepEqual(s.map(x => x.turnoId), [t1]);
-  assert.equal(a.post(jres({ turnoId: t2 })).error, 'NO_DISPONIBLE');
-  assert(a.post(jres({ turnoId: t1 })).ok);
-  const d = a.get({ action: 'disponibilidad', mes: '2026-11' }).data.dias['2026-11-07']; assert.equal(d.filter(x => x.turnoId === t1)[0].estado, 'no_disponible');
-  assert.equal(a.adm('admin.agenda', { mes: '2026-11' }).data.dias['2026-11-07'].filter(x => x.turnoId === t1)[0].juegoChicos, 5);
+t('no puede marcar ni anotar una reserva pendiente', () => {
+  const a = nuevo(); const { pend } = conEncargada(a);
+  assert.equal(a.enc('admin.encListo', { id: pend.id, listo: true }).error, 'NO_ENCONTRADA'); assert.equal(a.enc('admin.notaGuardar', { reservaId: pend.id, texto: 'hola' }).error, 'NO_ENCONTRADA');
+  assert(a.adm('admin.notaGuardar', { reservaId: pend.id, texto: 'la dueña sí puede' }).ok);
 });
-t('la dueña manda: abrir lejos, cerrar, y volver a automático', () => {
-  const a = nuevo(); const [t1] = conJuego(a);
-  assert(a.adm('admin.juegoSlot', { fecha: '2026-11-08', turnoId: t1, estado: 'abierto', cupo: 3, precio: 15000, nota: 'Tarde de pintura' }).ok);
-  let s = a.get({ action: 'juego' }).data.slots.filter(x => x.fecha === '2026-11-08'); assert.equal(s.length, 1); assert.equal(s[0].cupo, 3); assert.equal(s[0].precio, 15000); assert.equal(s[0].nota, 'Tarde de pintura');
-  assert(a.adm('admin.juegoSlot', { fecha: '2026-11-07', turnoId: t1, estado: 'cerrado' }).ok);
-  assert.equal(a.get({ action: 'juego' }).data.slots.filter(x => x.fecha === '2026-11-07' && x.turnoId === t1).length, 0);
-  assert(a.adm('admin.juegoSlot', { fecha: '2026-11-07', turnoId: t1, estado: 'auto' }).ok);
-  assert.equal(a.get({ action: 'juego' }).data.slots.filter(x => x.fecha === '2026-11-07' && x.turnoId === t1).length, 1);
-  assert.equal(a.adm('admin.juegoSlot', { fecha: '2026-11-09', turnoId: t1, estado: 'abierto' }).error, 'TURNO_INVALIDO');   // lunes: ese turno no existe
-  assert.equal(a.post({ action: 'admin.juego' }).error, 'NO_AUTORIZADO');
+t('anotaciones: las dejan la dueña y la encargada, se editan y se borran', () => {
+  const a = nuevo(); const { conf } = conEncargada(a);
+  let l = a.adm('admin.notaGuardar', { reservaId: conf.id, texto: 'Traer 2 torres de vasos' }).data; assert.equal(l.length, 1);
+  l = a.enc('admin.notaGuardar', { reservaId: conf.id, texto: 'Ya están en la heladera' }).data; assert.equal(l.length, 2); assert.equal(l[1].rol, 'encargada'); assert.equal(l[0].rol, 'admin');
+  l = a.enc('admin.notaGuardar', { reservaId: conf.id, id: l[0].id, texto: 'Traer 3 torres de vasos' }).data; assert.equal(l[0].texto, 'Traer 3 torres de vasos'); assert(l[0].editada);
+  assert.equal(a.enc('admin.encReservas').data[0].notas.length, 2); assert.equal(a.adm('admin.reserva', { id: conf.id }).data.notas.length, 2);
+  l = a.adm('admin.notaBorrar', { id: l[1].id }).data; assert.equal(l.length, 1); l = a.enc('admin.notaBorrar', { id: l[0].id }).data; assert.equal(l.length, 0);
+  assert.equal(a.adm('admin.notaGuardar', { reservaId: conf.id, texto: '   ' }).error, 'DATO_INVALIDO');
 });
-t('pago confirmado: queda en la caja una sola vez, se corrige y se cancela', () => {
-  const a = nuevo(); const [t1] = conJuego(a); const r = a.post(jres({ turnoId: t1 })).data;
-  const p = a.adm('admin.juegoPago', { id: r.id }); assert(p.ok, JSON.stringify(p)); assert.equal(p.data.reserva.estado, 'confirmada'); assert.equal(p.data.reserva.pagado, 100000);
-  let c = a.adm('admin.caja', { mes: '2026-11' }).data; assert.equal(c.ingresosExtra, 100000); assert.equal(c.movimientos.filter(m => m.categoria === 'Hora de juego').length, 1);
-  a.adm('admin.juegoPago', { id: r.id, monto: 80000 }); c = a.adm('admin.caja', { mes: '2026-11' }).data; assert.equal(c.ingresosExtra, 80000); assert.equal(c.movimientos.length, 1);
-  assert(a.adm('admin.juegoCancelar', { id: r.id }).ok); assert.equal(a.get({ action: 'juego' }).data.slots.filter(x => x.turnoId === t1 && x.fecha === '2026-11-07')[0].libres, 20);
+t('crear encargada: clave corta o mail de otro usuario se rechazan; quitarla corta el acceso', () => {
+  const a = nuevo(); assert.equal(a.adm('admin.encargadaGuardar', { email: 'e@mail.com', nombre: 'X', clave: 'corta' }).error, 'DATO_INVALIDO');
+  assert.equal(a.adm('admin.encargadaGuardar', { email: 'dueno@mail.com', nombre: 'X', clave: 'otra-clave-larga' }).error, 'DATO_INVALIDO');
+  conEncargada(a); assert.equal(a.adm('admin.encargadas').data.length, 1); assert(a.adm('admin.encargadaQuitar', { email: 'enc@mail.com' }).ok);
+  assert.equal(a.enc('admin.encReservas').error, 'NO_AUTORIZADO'); assert.equal(a.post({ action: 'login', email: 'enc@mail.com', clave: 'clave-encargada-1' }).error, 'CREDENCIALES');
+  assert.equal(a.adm('admin.encargadaQuitar', { email: 'dueno@mail.com' }).error, 'NO_ENCONTRADA');
 });
-t('sin pagar, la reserva vence y libera el cupo', () => {
-  const a = nuevo(); const [t1] = conJuego(a); a.post(jres({ turnoId: t1 }));
-  a.setNow(NOW + 4 * 3600000); a.run('vencer_()');
-  assert.equal(a.run('leer_("JuegoReservas")[0].estado'), 'vencida'); assert.equal(a.get({ action: 'juego' }).data.slots.filter(x => x.turnoId === t1 && x.fecha === '2026-11-07')[0].libres, 20);
-});
-t('comprobante: se sube, a los 7 días se borra la imagen y el dato queda', () => {
-  const a = nuevo(); const [t1] = conJuego(a); const r = a.post(jres({ turnoId: t1 })).data;
-  assert.equal(a.post({ action: 'comprobanteJuego', id: r.id, nombre: 'x.pdf', tipo: 'text/html', datos: png64 }).error, 'ARCHIVO_INVALIDO');
-  const c = a.post({ action: 'comprobanteJuego', id: r.id, nombre: 'transf.png', tipo: 'image/png', datos: png64 }); assert(c.ok, JSON.stringify(c)); assert.equal(c.data.comprobante.borrado, false);
-  assert(!JSON.stringify(c).includes('drive.google'));   // el público nunca recibe el enlace
-  a.adm('admin.juegoPago', { id: r.id }); const arch = a.drive.archivos[a.drive.archivos.length - 1]; assert.equal(arch.papelera, false);
-  a.setNow(NOW + 6 * 864e5); a.run('limpiarComprobantes_()'); assert.equal(arch.papelera, false);
-  a.setNow(NOW + 8 * 864e5); a.run('limpiarComprobantes_()'); assert.equal(arch.papelera, true);
-  const d = a.adm('admin.juegoReserva', { id: r.id }).data; assert.equal(d.comprobante.borrado, true); assert.equal(d.reserva.pagado, 100000);
-  assert.equal(a.adm('admin.caja', { mes: '2026-11' }).data.ingresosExtra, 100000);   // el dato sigue en la caja
-});
-t('la dueña carga lo que le llega por WhatsApp: reserva con pago y comprobante', () => {
-  const a = nuevo(); const [t1] = conJuego(a);
-  const r = a.adm('admin.juegoCrear', { fecha: '2026-11-06', turnoId: t1, nombre: 'Lucía', telefono: '2995550000', chicos: 3, pagado: 60000, origen: 'whatsapp', compNombre: 'transf.jpg', datos: png64, tipo: 'image/jpeg' }); assert(r.ok, JSON.stringify(r));
-  assert.equal(r.data.reserva.nombre, 'Lucía'); assert.equal(r.data.comprobante.nombre, 'transf.jpg'); assert.equal(r.data.reserva.estado, 'confirmada'); assert.equal(r.data.reserva.origen, 'whatsapp'); assert.equal(r.data.comprobante.origen, 'dueño');
-  assert.equal(a.adm('admin.caja', { mes: '2026-11' }).data.ingresosExtra, 60000);
-  assert.equal(a.adm('admin.juegoCrear', { fecha: '2026-11-06', turnoId: t1, nombre: 'Otro', telefono: '1', chicos: 30 }).error, 'CUPO');
-  assert(a.adm('admin.juegoCrear', { fecha: '2026-11-06', turnoId: t1, nombre: 'Otro', telefono: '1', chicos: 30, forzar: true }).ok);
+t('cambiar la clave de la encargada desde el panel: la anterior deja de servir', () => {
+  const a = nuevo(); conEncargada(a); assert(a.adm('admin.encargadaGuardar', { email: 'enc@mail.com', nombre: 'Lu', clave: 'clave-nueva-123' }).ok);
+  assert.equal(a.post({ action: 'login', email: 'enc@mail.com', clave: 'clave-encargada-1' }).error, 'CREDENCIALES'); assert(a.post({ action: 'login', email: 'enc@mail.com', clave: 'clave-nueva-123' }).ok);
 });
 
 console.log(`\n${n} pruebas ok, ${fallos} con fallas`);

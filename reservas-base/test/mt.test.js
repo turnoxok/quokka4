@@ -124,4 +124,17 @@ t('un plan creado o borrado en el panel se copia a la ficha', () => {
   a.run("LLAMADAS.length = 0; RV_CTX = { id: 'luna-azul', sheetId: 'HOJA_C' }; ADMIN['admin.guardarPlan']({ nombre: 'Solo panel', precio: 777 }, { email: 'dueno@x.com' })");
   const ll = a.run('LLAMADAS'); assert.equal(ll.length, 1); assert(ll[0].v.planes.some(p => p.nombre === 'Solo panel' && p.precio === 777), JSON.stringify(ll[0].v.planes));
 });
+t('rvCargar_ arma salones, horarios y combos de un cliente y apaga los que sobran', () => {
+  const d = { reemplazar: true, config: { pedirNino: true, extraPrecio: 20000 }, salones: [
+    { nombre: 'Original', turnos: [{ dias: '1,2,3,4,5', inicio: '14:30', fin: '17:00' }, { dias: '0,6', inicio: '11:00', fin: '13:30' }], planes: [{ nombre: 'Combo 1', precio: 890000, descTotal: 25, ninos: 30, adultos: 30 }, { nombre: 'Combo 2', precio: 1000000, ninos: 30 }] },
+    { nombre: 'Selva', turnos: [{ dias: '0,6', inicio: '11:00', fin: '13:30' }], planes: [{ nombre: 'Combo 1', precio: 750000, descTotal: 25, ninos: 30, adultos: 30 }] }] };
+  reg('lobo-z', 'HOJA_Z', 'Lobo Z', '5493333333333', 'lobo@azul.com', 'clave-lobo-1234');
+  const fab = require('fs').readFileSync(require('path').join(__dirname, '../../fabrica/Codigo.gs'), 'utf8'), ini = fab.indexOf('function rvCargar_'); a.run(fab.slice(ini, fab.indexOf('function sembrarCliente_')));
+  const r = a.run(`rvCargar_('rana-loca', ${JSON.stringify(d)})`); assert.equal(r.planes, 3); assert.equal(r.turnos, 3);
+  const c = get('rana-loca', { action: 'config' }).data;
+  assert.equal(c.salones.length, 2); assert.equal(c.salones[0].nombre, 'Original'); assert.equal(c.salones[0].id, 'S1');
+  assert.equal(c.planes.filter(p => p.salonId === c.salones[1].id).length, 1); assert.equal(c.pedirNino, true);
+  const otroR = get('lobo-z', { action: 'config' }); const otro = otroR.data || assert.fail(JSON.stringify(otroR)); assert.equal(otro.planes.length, 0); assert.equal(otro.salones.length, 1);
+});
+
 console.log('\n' + n + ' pruebas ok, ' + fallos + ' con fallas'); process.exit(fallos ? 1 : 0);
