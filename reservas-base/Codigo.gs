@@ -115,7 +115,7 @@ function ss_() {
 var COLS_OK = {};
 function hoja_(n) {
   var s = ss_().getSheetByName(n);
-  if (!s && (n === 'Juego' || n === 'JuegoReservas')) {   // hs de juego: la pestaña aparece sola la primera vez
+  if (!s && (n === 'Anotaciones' || n === 'Juego' || n === 'JuegoReservas')) {   // pestañas agregadas después de instalar: aparecen solas la primera vez (así no hace falta reinstalar)
     var hh = TABLAS[n]; s = ss_().insertSheet(n); s.getRange(1, 1, 1, hh.length).setValues([hh]); s.setFrozenRows(1);
     hh.forEach(function (c, i) { if (!NUMS[c] && !BOOLS[c]) s.getRange(2, i + 1, Math.max(1, s.getMaxRows() - 1), 1).setNumberFormat('@'); });
   }

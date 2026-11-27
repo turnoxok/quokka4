@@ -472,6 +472,10 @@ t('no puede marcar ni anotar una reserva pendiente', () => {
   assert.equal(a.enc('admin.encListo', { id: pend.id, listo: true }).error, 'NO_ENCONTRADA'); assert.equal(a.enc('admin.notaGuardar', { reservaId: pend.id, texto: 'hola' }).error, 'NO_ENCONTRADA');
   assert(a.adm('admin.notaGuardar', { reservaId: pend.id, texto: 'la dueña sí puede' }).ok);
 });
+t('si el libro es viejo y no tiene la pestaña Anotaciones, se crea sola y la encargada entra igual', () => {
+  const a = nuevo(); const { conf } = conEncargada(a); a.run('delete ss_().__hojas["Anotaciones"]');
+  assert(a.enc('admin.encReservas').ok); assert.equal(a.enc('admin.notaGuardar', { reservaId: conf.id, texto: 'Hola' }).data.length, 1);
+});
 t('anotaciones: las dejan la dueña y la encargada, se editan y se borran', () => {
   const a = nuevo(); const { conf } = conEncargada(a);
   let l = a.adm('admin.notaGuardar', { reservaId: conf.id, texto: 'Traer 2 torres de vasos' }).data; assert.equal(l.length, 1);

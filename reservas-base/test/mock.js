@@ -26,7 +26,7 @@ function crear(opts = {}) {
     });
   }
   const libros = {};
-  const nuevoLibro = (id, hj) => ({ hojas: hj, ss: { getSheetByName: n => hj[n] || null, insertSheet: n => (hj[n] = Hoja(n)), getId: () => id, getName: () => 'Hoja ' + id } });
+  const nuevoLibro = (id, hj) => ({ hojas: hj, ss: { __hojas: hj, getSheetByName: n => hj[n] || null, insertSheet: n => (hj[n] = Hoja(n)), getId: () => id, getName: () => 'Hoja ' + id } });
   libros.SS1 = nuevoLibro('SS1', hojas);
   const ss = libros.SS1.ss;
   const ctx = {
